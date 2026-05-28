@@ -92,8 +92,109 @@ const updateBookingStatus = async (bookingId, status) => {
   return rows[0];
 };
 
+const getUsers = async (filters = {}) => {
+  const { role, search } = filters;
+  let query = `
+    SELECT u.id, u.full_name, u.email, u.phone, u.status as is_active, 
+           GROUP_CONCAT(r.name) as roles
+    FROM users u
+    JOIN user_roles ur ON u.id = ur.user_id
+    JOIN roles r ON ur.role_id = r.id
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (role) {
+    query += " AND r.name = ?";
+    params.push(role);
+  }
+
+  if (search) {
+    query += " AND (u.full_name LIKE ? OR u.email LIKE ?)";
+    params.push(`%${search}%`, `%${search}%`);
+  }
+
+  query += " GROUP BY u.id ORDER BY u.id DESC";
+
+  const [rows] = await pool.execute(query, params);
+  return rows;
+};
+
+const updateUserRole = async (userId, newRole) => {
+  const allowedRoles = ["CUSTOMER", "EMPLOYEE"];
+  if (!allowedRoles.includes(newRole)) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Cannot assign ADMIN role via this API", 400);
+  }
+
+  // Check if user is already ADMIN to prevent any change to the admin account
+  const [[userRole]] = await pool.execute(
+    `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`, 
+    [userId]
+  );
+
+  if (userRole && userRole.name === "ADMIN") {
+    const AppError = require("../utils/AppError");
+    throw new AppError("System Administrator account cannot be changed", 403);
+  }
+
+  await pool.execute("DELETE FROM user_roles WHERE user_id = ?", [userId]);
+  const [[roleRow]] = await pool.execute("SELECT id FROM roles WHERE name = ?", [newRole]);
+  
+  if (!roleRow) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Role not found", 404);
+  }
+
+  await pool.execute("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", [userId, roleRow.id]);
+  return { userId, newRole };
+};
+
+const updateUserStatus = async (userId, status) => {
+  const allowedStatuses = ["ACTIVE", "BLOCKED"];
+  if (!allowedStatuses.includes(status)) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Invalid status", 400);
+  }
+
+  await pool.execute("UPDATE users SET status = ? WHERE id = ?", [status, userId]);
+  const [rows] = await pool.execute("SELECT id, status FROM users WHERE id = ? LIMIT 1", [userId]);
+  return rows[0];
+};
+
+const deleteUser = async (userId) => {
+  // Check if user is BLOCKED before deleting
+  const [[user]] = await pool.execute("SELECT status FROM users WHERE id = ?", [userId]);
+  if (!user || user.status !== "BLOCKED") {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Only blocked accounts can be deleted", 400);
+  }
+
+  await pool.execute("DELETE FROM users WHERE id = ?", [userId]);
+  return { userId, deleted: true };
+};
+
+const getUserDetail = async (userId) => {
+  const [userRows] = await pool.execute(
+    `SELECT u.id, u.full_name, u.email, u.phone, u.birth_date, u.status, 
+            GROUP_CONCAT(r.name) as roles
+     FROM users u
+     JOIN user_roles ur ON u.id = ur.user_id
+     JOIN roles r ON ur.role_id = r.id
+     WHERE u.id = ?
+     GROUP BY u.id`, 
+    [userId]
+  );
+  return userRows[0];
+};
+
 module.exports = {
   getDashboardStatistics,
   getAdminBookings,
   updateBookingStatus,
+  getUsers,
+  updateUserRole,
+  updateUserStatus,
+  deleteUser,
+  getUserDetail,
 };

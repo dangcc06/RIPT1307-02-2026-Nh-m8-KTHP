@@ -25,9 +25,21 @@ html {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: "Inter", sans-serif;
+  font-family:
+    "Inter",
+    "Noto Sans Vietnamese",
+    "Noto Sans",
+    "Noto Sans SC",
+    "Arial Unicode MS",
+    "Segoe UI",
+    Tahoma,
+    Geneva,
+    Verdana,
+    Arial,
+    sans-serif;
   overflow-x: hidden;
 }
+
 
 a {
   text-decoration: none;

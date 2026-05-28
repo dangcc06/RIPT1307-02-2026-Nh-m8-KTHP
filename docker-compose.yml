@@ -8,6 +8,8 @@ services:
       MYSQL_DATABASE: cinema_booking
       MYSQL_USER: cinema_user
       MYSQL_PASSWORD: cinema_pass
+      character-set-server: utf8mb4
+      char-set-client: utf8mb4
     ports:
       - "3307:3306"
     volumes:

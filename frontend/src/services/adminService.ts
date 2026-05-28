@@ -64,3 +64,49 @@ export const deleteAdminShowtime = async (id: number) => {
   const response = await apiClient.delete<ApiResponse<{}>>(`/admin/showtimes/${id}`);
   return response.data;
 };
+
+export type AdminUser = {
+  id: number;
+  full_name: string;
+  email: string;
+  phone: string;
+  is_active: "ACTIVE" | "BLOCKED";
+  roles: string;
+};
+
+export const getAdminUsers = async (params?: { role?: string; search?: string }) => {
+  const response = await apiClient.get<ApiResponse<AdminUser[]>>("/admin/users", { params });
+  return response.data.data;
+};
+
+export const updateAdminUserRole = async (id: number, role: string) => {
+  const response = await apiClient.patch<ApiResponse<{ userId: number; newRole: string }>>(
+    `/admin/users/${id}/role`,
+    {
+      role,
+    }
+  );
+  return response.data.data;
+};
+
+export const updateAdminUserStatus = async (id: number, status: "ACTIVE" | "BLOCKED") => {
+  const response = await apiClient.patch<ApiResponse<{ id: number; status: string }>>(
+    `/admin/users/${id}/status`,
+    {
+      status,
+    }
+  );
+  return response.data.data;
+};
+
+export const deleteAdminUser = async (id: number) => {
+  const response = await apiClient.delete<ApiResponse<{ userId: number; deleted: boolean }>>(
+    `/admin/users/${id}`
+  );
+  return response.data.data;
+};
+
+export const getAdminUserDetail = async (id: number) => {
+  const response = await apiClient.get<ApiResponse<AdminUser>>( `/admin/users/${id}`);
+  return response.data.data;
+};

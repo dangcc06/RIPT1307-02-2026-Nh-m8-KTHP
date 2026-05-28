@@ -12,6 +12,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import { notification, Modal } from "antd";
 import {
   createAdminMovie,
   createAdminShowtime,
@@ -22,14 +23,19 @@ import {
   updateAdminBookingStatus,
   updateAdminMovie,
   updateAdminShowtime,
+  getAdminUsers,
+  updateAdminUserRole,
+  updateAdminUserStatus,
+  getAdminUserDetail,
+  deleteAdminUser,
 } from "../../services/adminService";
-import type { AdminBooking } from "../../services/adminService";
+import type { AdminBooking, AdminUser } from "../../services/adminService";
 import { getMovies } from "../../services/movieService";
 import { getShowtimes } from "../../services/showtimeService";
 import type { ApiMovie, ApiShowtime } from "../../types/api";
 import { formatCurrency, formatDateTime } from "../../utils/format";
 
-type AdminTab = "overview" | "movies" | "showtimes" | "bookings";
+type AdminTab = "overview" | "movies" | "showtimes" | "bookings" | "users";
 
 const emptyMovieForm = {
   id: "",
@@ -59,25 +65,31 @@ const AdminPage = () => {
   const [movies, setMovies] = useState<ApiMovie[]>([]);
   const [showtimes, setShowtimes] = useState<ApiShowtime[]>([]);
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [userFilters, setUserFilters] = useState({ role: "", search: "" });
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [movieForm, setMovieForm] = useState(emptyMovieForm);
   const [showtimeForm, setShowtimeForm] = useState(emptyShowtimeForm);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [isUserModalVisible, setIsUserModalVisible] = useState(false);
 
   const loadAdminData = async () => {
     setIsLoading(true);
     try {
-      const [statsData, movieData, showtimeData, bookingData] = await Promise.all([
+      const [statsData, movieData, showtimeData, bookingData, userData] = await Promise.all([
         getDashboardStats(),
         getMovies({ page: 1, limit: 50 }),
         getShowtimes(),
         getAdminBookings(),
+        getAdminUsers(),
       ]);
 
       setStats(statsData);
       setMovies(movieData.items);
       setShowtimes(showtimeData);
       setBookings(bookingData);
+      setUsers(userData);
       setMessage("");
     } catch (error: any) {
       setMessage(
@@ -192,8 +204,95 @@ const AdminPage = () => {
     setActiveTab("showtimes");
   };
 
+  const handleUserFilterChange = async (updates: Partial<typeof userFilters>) => {
+    const newFilters = { ...userFilters, ...updates };
+    setUserFilters(newFilters);
+    try {
+      const data = await getAdminUsers(newFilters);
+      setUsers(data);
+    } catch (error: any) {
+      setMessage(error.response?.data?.message || "Không lọc được người dùng.");
+    }
+  };
+
+  const handleUserRoleChange = async (userId: number, newRole: string) => {
+    const user = users.find(u => u.id === userId);
+    if (user?.is_active === "BLOCKED") {
+      notification.warning({
+        message: "Hành động bị chặn",
+        description: "Không thể thay đổi vai trò của tài khoản đang bị khóa.",
+      });
+      return;
+    }
+    try {
+      await updateAdminUserRole(userId, newRole);
+      notification.success({
+        message: "Cập nhật Role",
+        description: `Đã thay đổi role người dùng thành ${newRole}.`,
+      });
+      await loadAdminData();
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi cập nhật",
+        description: error.response?.data?.message || "Không đổi được role.",
+      });
+    }
+  };
+
+  const handleUserStatusChange = async (userId: number, status: "ACTIVE" | "BLOCKED") => {
+    try {
+      await updateAdminUserStatus(userId, status);
+      notification.success({
+        message: "Cập nhật trạng thái",
+        description: status === "ACTIVE" ? "Đã mở khóa tài khoản." : "Đã khóa tài khoản.",
+      });
+      await loadAdminData();
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi cập nhật",
+        description: error.response?.data?.message || "Không cập nhật trạng thái được.",
+      });
+    }
+  };
+
+  const handleViewUserDetail = async (userId: number) => {
+    try {
+      const user = await getAdminUserDetail(userId);
+      setSelectedUser(user);
+      setIsUserModalVisible(true);
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi",
+        description: error.response?.data?.message || "Không lấy được chi tiết người dùng.",
+      });
+    }
+  };
+
   return (
     <section className="app-page admin-page">
+      <style>{`
+        .admin-table {
+          width: 100%;
+          border-collapse: collapse;
+          color: white;
+          table-layout: fixed;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .admin-table th, .admin-table td {
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 12px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          box-sizing: border-box;
+        }
+        .admin-table thead tr {
+          background-color: rgba(255, 255, 255, 0.05);
+        }
+        .admin-table tr:nth-child(even) {
+          background-color: rgba(255, 255, 255, 0.03);
+        }
+      `}</style>
       <div className="container">
         <div className="admin-hero">
           <div>
@@ -223,6 +322,9 @@ const AdminPage = () => {
           </button>
           <button className={activeTab === "bookings" ? "active" : ""} onClick={() => setActiveTab("bookings")}>
             <CreditCard size={18} /> Đơn hàng
+          </button>
+          <button className={activeTab === "users" ? "active" : ""} onClick={() => setActiveTab("users")}>
+            <Users size={18} /> Người dùng
           </button>
         </div>
 
@@ -409,7 +511,163 @@ const AdminPage = () => {
             </div>
           </div>
         )}
+
+        {activeTab === "users" && (
+          <div className="admin-users-section">
+            <div className="data-card">
+              <div className="section-header">
+                <h2>Quản lý người dùng</h2>
+                <div className="filters-group">
+                  <input 
+                    type="text" 
+                    placeholder="Tìm tên, email..." 
+                    value={userFilters.search} 
+                    onChange={(e) => handleUserFilterChange({ search: e.target.value })}
+                    className="admin-filter-input"
+                  />
+                  <select 
+                    value={userFilters.role} 
+                    onChange={(e) => handleUserFilterChange({ role: e.target.value })}
+                    className="admin-filter-select"
+                  >
+                    <option value="">Tất cả Role</option>
+                    <option value="CUSTOMER">Customer</option>
+                    <option value="EMPLOYEE">Employee</option>
+                    <option value="ADMIN">Admin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="table-responsive">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "60px", textAlign: "left" }}>ID</th>
+                      <th style={{ textAlign: "left" }}>Họ tên</th>
+                      <th style={{ textAlign: "left" }}>Email</th>
+                      <th style={{ textAlign: "left" }}>Số điện thoại</th>
+                      <th style={{ width: "160px", textAlign: "left" }}>Roles</th>
+                      <th style={{ width: "130px", textAlign: "center" }}>Trạng thái</th>
+                      <th style={{ textAlign: "center" }}>Hành động</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.length > 0 ? (
+                      users.map((user) => (
+                        <tr key={user.id}>
+                          <td style={{ textAlign: "left" }}>{user.id}</td>
+                          <td style={{ textAlign: "left" }}>{user.full_name}</td>
+                          <td style={{ textAlign: "left" }}>{user.email}</td>
+                          <td style={{ textAlign: "left" }}>{user.phone}</td>
+                          <td style={{ width: "160px", textAlign: "left" }}>
+                            <select 
+                              value={user.roles} 
+                              onChange={(e) => handleUserRoleChange(user.id, e.target.value)}
+                              className="role-select"
+                              disabled={user.is_active === "BLOCKED"}
+                            >
+                              <option value="CUSTOMER">CUSTOMER</option>
+                              <option value="EMPLOYEE">EMPLOYEE</option>
+                              <option value="ADMIN">ADMIN</option>
+                            </select>
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <button 
+                              className={`status-toggle-btn ${user.is_active === "ACTIVE" ? "active" : "blocked"}`}
+                              onClick={() => {
+                                handleUserStatusChange(user.id, user.is_active === "ACTIVE" ? "BLOCKED" : "ACTIVE");
+                              }}
+                              style={{
+                                padding: "4px 12px",
+                                borderRadius: "4px",
+                                border: "none",
+                                cursor: "pointer",
+                                fontWeight: "bold",
+                                color: "white",
+                                backgroundColor: user.is_active === "ACTIVE" ? "#52c41a" : "#ff4d4f",
+                                minWidth: "100px",
+                              }}
+                            >
+                              {user.is_active === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
+                            </button>
+                          </td>
+                          <td style={{ textAlign: "center" }}>
+                            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                              <button 
+                                className="secondary-btn compact" 
+                                onClick={() => handleViewUserDetail(user.id)}
+                              >
+                                Chi tiết
+                              </button>
+                              {user.roles !== "ADMIN" && user.is_active === "BLOCKED" && (
+                                <button 
+                                  className="secondary-btn compact" 
+                                  style={{ color: "red", borderColor: "red" }}
+                                  onClick={async () => {
+                                    if (window.confirm("Bạn có chắc chắn muốn xóa tài khoản này?")) {
+                                      try {
+                                        await deleteAdminUser(user.id);
+                                        notification.success({ message: "Xóa tài khoản thành công" });
+                                        await loadAdminData();
+                                      } catch (e: any) {
+                                        notification.error({ 
+                                          message: "Lỗi khi xóa", 
+                                          description: e.response?.data?.message || "Không thể xóa tài khoản." 
+                                        });
+                                      }
+                                    }
+                                  }}
+                                  >
+                                  Xóa
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="text-center">Không tìm thấy người dùng nào.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
+
+      <Modal 
+        title="Chi tiết người dùng" 
+        open={isUserModalVisible} 
+        onCancel={() => setIsUserModalVisible(false)} 
+        footer={null}
+      >
+        <div style={{ display: "grid", gap: "12px", padding: "10px 0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <strong>Họ tên:</strong> <span>{selectedUser?.full_name}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <strong>Email:</strong> <span>{selectedUser?.email}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <strong>Số điện thoại:</strong> <span>{selectedUser?.phone}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <strong>Roles:</strong> <span>{selectedUser?.roles}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <strong>Trạng thái:</strong> 
+            <span style={{ 
+              color: selectedUser?.is_active === "ACTIVE" ? "#52c41a" : "#ff4d4f",
+              fontWeight: "bold" 
+            }}>
+              {selectedUser?.is_active === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
+            </span>
+          </div>
+        </div>
+      </Modal>
     </section>
   );
 };
