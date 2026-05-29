@@ -1,4 +1,4 @@
-import React, { FormEvent } from "react";
+import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import { Edit3, Plus, Trash2 } from "lucide-react";
 import type { ApiMovie } from "../../../types/api";
 
@@ -21,6 +21,34 @@ const AdminMovies: React.FC<AdminMoviesProps> = ({
   loadAdminData,
   handleDeleteMovie,
 }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | ApiMovie["status"]>("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const filteredMovies = useMemo(
+    () =>
+      movies.filter((movie) => {
+        const title = movie.title?.toLowerCase() || "";
+        const matchesSearch = title.includes(searchTerm.toLowerCase());
+        const matchesStatus =
+          statusFilter === "ALL" || movie.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      }),
+    [movies, searchTerm, statusFilter]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredMovies.length / pageSize));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
+
+  const currentMovies = useMemo(
+    () =>
+      filteredMovies.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredMovies, currentPage]
+  );
   return (
     <div className="admin-workspace">
       <form className="form-panel admin-form" onSubmit={handleSubmitMovie}>
@@ -100,29 +128,97 @@ const AdminMovies: React.FC<AdminMoviesProps> = ({
       <div className="data-card admin-table-card">
         <h2>Danh sách phim</h2>
 
+        <div
+          className="admin-filter-row"
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 16,
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Tìm phim..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+          >
+            <option value="ALL">Tất cả</option>
+            <option value="NOW_SHOWING">Đang chiếu</option>
+            <option value="COMING_SOON">Sắp chiếu</option>
+            <option value="ENDED">Ngừng chiếu</option>
+          </select>
+        </div>
+
         <div className="admin-table">
-          {movies.map((movie) => (
-            <div className="admin-table-row movie-admin-row" key={movie.id}>
-              <strong>{movie.title}</strong>
-              <span>{movie.status}</span>
-              <span>{movie.duration || 0} phút</span>
+          {currentMovies.length > 0 ? (
+            currentMovies.map((movie) => (
+              <div className="admin-table-row movie-admin-row" key={movie.id}>
+                <strong>{movie.title}</strong>
+                <span>{movie.status}</span>
+                <span>{movie.duration || 0} phút</span>
 
-              <button title="Sửa phim" onClick={() => editMovie(movie)}>
-                <Edit3 size={16} />
-              </button>
+                <button title="Sửa phim" onClick={() => editMovie(movie)}>
+                  <Edit3 size={16} />
+                </button>
 
-              <button
-                title="Xóa phim"
-                onClick={async () => {
-                  if (window.confirm("Xóa phim này?")) {
-                    await handleDeleteMovie(movie.id);
-                  }
-                }}
-              >
-                <Trash2 size={16} />
-              </button>
+                <button
+                  title="Xóa phim"
+                  onClick={async () => {
+                    if (window.confirm("Xóa phim này?")) {
+                      await handleDeleteMovie(movie.id);
+                    }
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="admin-table-row">
+              <span>Không tìm thấy phim phù hợp.</span>
             </div>
-          ))}
+          )}
+        </div>
+
+        <div
+          className="pagination-row"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 16,
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <span>
+            Trang {currentPage} / {totalPages}
+          </span>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="secondary-btn compact"
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              Prev
+            </button>
+            <button
+              className="secondary-btn compact"
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>

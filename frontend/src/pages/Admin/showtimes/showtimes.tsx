@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Edit3, Plus, Trash2 } from "lucide-react";
 import type { ApiShowtime, ApiMovie } from "../../../types/api";
 
@@ -46,6 +46,56 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
   deleteShowtime,
   formatDateTime,
 }) => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [cinemaFilter, setCinemaFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | ApiShowtime["status"]>("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const cinemaOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(showtimes.map((showtime) => showtime.cinema_name || "Không rõ"))
+      ),
+    [showtimes]
+  );
+
+  const filteredShowtimes = useMemo(
+    () =>
+      showtimes.filter((showtime) => {
+        const title = showtime.movie_title?.toLowerCase() || "";
+        const matchesSearch = title.includes(searchTerm.toLowerCase());
+        const matchesCinema =
+          cinemaFilter === "ALL" ||
+          (showtime.cinema_name || "Không rõ") === cinemaFilter;
+        const matchesStatus =
+          statusFilter === "ALL" || showtime.status === statusFilter;
+        return matchesSearch && matchesCinema && matchesStatus;
+      }),
+    [showtimes, searchTerm, cinemaFilter, statusFilter]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filteredShowtimes.length / pageSize));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, cinemaFilter, statusFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const currentShowtimes = useMemo(
+    () =>
+      filteredShowtimes.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize
+      ),
+    [filteredShowtimes, currentPage]
+  );
+
   return (
     <div
       className="admin-workspace"
@@ -133,6 +183,45 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
         <h2>Danh sách suất chiếu</h2>
 
         <div
+          className="admin-filter-row"
+          style={{
+            display: "flex",
+            gap: 12,
+            flexWrap: "wrap",
+            marginBottom: 16,
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Tìm suất chiếu theo phim..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
+          <select
+            value={cinemaFilter}
+            onChange={(e) => setCinemaFilter(e.target.value)}
+          >
+            <option value="ALL">Tất cả rạp</option>
+            {cinemaOptions.map((cinema) => (
+              <option value={cinema} key={cinema}>
+                {cinema}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+          >
+            <option value="ALL">Tất cả</option>
+            <option value="OPEN">Mở bán</option>
+            <option value="FULL">Đã đầy</option>
+            <option value="CANCELLED">Đã hủy</option>
+          </select>
+        </div>
+
+        <div
           className="admin-table"
           style={{
             width: "100%",
@@ -141,51 +230,91 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
             boxSizing: "border-box",
           }}
         >
-          {showtimes.map((showtime) => (
-            <div
-              className="admin-table-row showtime-admin-row"
-              key={showtime.id}
-              style={{
-                width: "100%",
-                minWidth: "680px",
-                boxSizing: "border-box",
-                display: "grid",
-                alignItems: "center",
-                gap: "12px",
-                gridTemplateColumns: "1.6fr 1.6fr 1.2fr 0.8fr 40px 40px",
-              }}
-            >
-              <strong style={cellStyle}>{showtime.movie_title}</strong>
-
-              <span style={cellStyle}>
-                {showtime.cinema_name} - {showtime.room_name}
-              </span>
-
-              <span style={cellStyle}>
-                {formatDateTime(showtime.start_time)}
-              </span>
-
-              <span style={cellStyle}>{showtime.status}</span>
-
-              <button
-                title="Sửa suất chiếu"
-                onClick={() => editShowtime(showtime)}
-                style={actionButtonStyle}
-              >
-                <Edit3 size={16} />
-              </button>
-
-              <button
-                title="Xóa suất chiếu"
-                onClick={async () => {
-                  await deleteShowtime(showtime.id);
+          {currentShowtimes.length > 0 ? (
+            currentShowtimes.map((showtime) => (
+              <div
+                className="admin-table-row showtime-admin-row"
+                key={showtime.id}
+                style={{
+                  width: "100%",
+                  minWidth: "680px",
+                  boxSizing: "border-box",
+                  display: "grid",
+                  alignItems: "center",
+                  gap: "12px",
+                  gridTemplateColumns: "1.6fr 1.6fr 1.2fr 0.8fr 40px 40px",
                 }}
-                style={actionButtonStyle}
               >
-                <Trash2 size={16} />
-              </button>
+                <strong style={cellStyle}>{showtime.movie_title}</strong>
+
+                <span style={cellStyle}>
+                  {showtime.cinema_name} - {showtime.room_name}
+                </span>
+
+                <span style={cellStyle}>
+                  {formatDateTime(showtime.start_time)}
+                </span>
+
+                <span style={cellStyle}>{showtime.status}</span>
+
+                <button
+                  title="Sửa suất chiếu"
+                  onClick={() => editShowtime(showtime)}
+                  style={actionButtonStyle}
+                >
+                  <Edit3 size={16} />
+                </button>
+
+                <button
+                  title="Xóa suất chiếu"
+                  onClick={async () => {
+                    await deleteShowtime(showtime.id);
+                  }}
+                  style={actionButtonStyle}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="admin-table-row">
+              <span>Không tìm thấy suất chiếu phù hợp.</span>
             </div>
-          ))}
+          )}
+        </div>
+
+        <div
+          className="pagination-row"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 16,
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <span>
+            Trang {currentPage} / {totalPages}
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              className="secondary-btn compact"
+              type="button"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            >
+              Prev
+            </button>
+            <button
+              className="secondary-btn compact"
+              type="button"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>
