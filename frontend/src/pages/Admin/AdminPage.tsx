@@ -12,21 +12,25 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { notification, Modal } from "antd";
+import { Modal, notification } from "antd";
+
+import OverviewSection from "./overview/overview";
+import MoviesSection from "./movies/movies";
+
 import {
   createAdminMovie,
   createAdminShowtime,
   deleteAdminMovie,
   deleteAdminShowtime,
   getAdminBookings,
+  getAdminUserDetail,
+  getAdminUsers,
   getDashboardStats,
   updateAdminBookingStatus,
   updateAdminMovie,
   updateAdminShowtime,
-  getAdminUsers,
   updateAdminUserRole,
   updateAdminUserStatus,
-  getAdminUserDetail,
   deleteAdminUser,
 } from "../../services/adminService";
 import type { AdminBooking, AdminUser } from "../../services/adminService";
@@ -36,6 +40,8 @@ import type { ApiMovie, ApiShowtime } from "../../types/api";
 import { formatCurrency, formatDateTime } from "../../utils/format";
 
 type AdminTab = "overview" | "movies" | "showtimes" | "bookings" | "users";
+
+const Visible = Modal;
 
 const emptyMovieForm = {
   id: "",
@@ -77,13 +83,14 @@ const AdminPage = () => {
   const loadAdminData = async () => {
     setIsLoading(true);
     try {
-      const [statsData, movieData, showtimeData, bookingData, userData] = await Promise.all([
-        getDashboardStats(),
-        getMovies({ page: 1, limit: 50 }),
-        getShowtimes(),
-        getAdminBookings(),
-        getAdminUsers(),
-      ]);
+      const [statsData, movieData, showtimeData, bookingData, userData] =
+        await Promise.all([
+          getDashboardStats(),
+          getMovies({ page: 1, limit: 50 }),
+          getShowtimes(),
+          getAdminBookings(),
+          getAdminUsers(),
+        ]);
 
       setStats(statsData);
       setMovies(movieData.items);
@@ -94,7 +101,7 @@ const AdminPage = () => {
     } catch (error: any) {
       setMessage(
         error.response?.data?.message ||
-          "Không tải được dữ liệu quản trị. Vui lòng đăng nhập bằng tài khoản ADMIN/EMPLOYEE."
+          "Không tải được dữ liệu quản trị. Vui lòng đăng nhập bằng tài khoản ADMIN."
       );
     } finally {
       setIsLoading(false);
@@ -106,7 +113,8 @@ const AdminPage = () => {
   }, []);
 
   const maxMonthlyRevenue = useMemo(() => {
-    const values = stats?.monthly_revenue?.map((item: any) => Number(item.revenue)) || [0];
+    const values =
+      stats?.monthly_revenue?.map((item: any) => Number(item.revenue)) || [0];
     return Math.max(...values, 1);
   }, [stats]);
 
@@ -166,10 +174,15 @@ const AdminPage = () => {
     }
   };
 
-  const handleBookingStatus = async (bookingId: number, status: AdminBooking["booking_status"]) => {
+  const handleBookingStatus = async (
+    bookingId: number,
+    status: AdminBooking["booking_status"]
+  ) => {
     try {
       await updateAdminBookingStatus(bookingId, status);
-      setMessage(status === "CONFIRMED" ? "Đã xác nhận đơn hàng." : "Đã cập nhật trạng thái đơn hàng.");
+      setMessage(
+        status === "CONFIRMED" ? "Đã xác nhận đơn hàng." : "Đã cập nhật trạng thái đơn hàng."
+      );
       await loadAdminData();
     } catch (error: any) {
       setMessage(error.response?.data?.message || "Không cập nhật được đơn hàng.");
@@ -207,6 +220,7 @@ const AdminPage = () => {
   const handleUserFilterChange = async (updates: Partial<typeof userFilters>) => {
     const newFilters = { ...userFilters, ...updates };
     setUserFilters(newFilters);
+
     try {
       const data = await getAdminUsers(newFilters);
       setUsers(data);
@@ -216,7 +230,8 @@ const AdminPage = () => {
   };
 
   const handleUserRoleChange = async (userId: number, newRole: string) => {
-    const user = users.find(u => u.id === userId);
+    const user = users.find((u) => u.id === userId);
+
     if (user?.is_active === "BLOCKED") {
       notification.warning({
         message: "Hành động bị chặn",
@@ -224,28 +239,36 @@ const AdminPage = () => {
       });
       return;
     }
+
     try {
       await updateAdminUserRole(userId, newRole);
+
       notification.success({
-        message: "Cập nhật Role",
-        description: `Đã thay đổi role người dùng thành ${newRole}.`,
+        message: "Cập nhật vai trò",
+        description: `Đã thay đổi vai trò người dùng thành ${newRole}.`,
       });
+
       await loadAdminData();
     } catch (error: any) {
       notification.error({
         message: "Lỗi cập nhật",
-        description: error.response?.data?.message || "Không đổi được role.",
+        description: error.response?.data?.message || "Không đổi được vai trò.",
       });
     }
   };
 
-  const handleUserStatusChange = async (userId: number, status: "ACTIVE" | "BLOCKED") => {
+  const handleUserStatusChange = async (
+    userId: number,
+    status: "ACTIVE" | "BLOCKED"
+  ) => {
     try {
       await updateAdminUserStatus(userId, status);
+
       notification.success({
         message: "Cập nhật trạng thái",
         description: status === "ACTIVE" ? "Đã mở khóa tài khoản." : "Đã khóa tài khoản.",
       });
+
       await loadAdminData();
     } catch (error: any) {
       notification.error({
@@ -271,38 +294,129 @@ const AdminPage = () => {
   return (
     <section className="app-page admin-page">
       <style>{`
+        .table-responsive {
+          width: 100%;
+          overflow-x: auto;
+          border-radius: 14px;
+        }
+
         .admin-table {
           width: 100%;
+          min-width: 1450px;
           border-collapse: collapse;
-          color: white;
           table-layout: fixed;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: white;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.02);
         }
-        .admin-table th, .admin-table td {
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          padding: 12px;
+
+        .admin-table th,
+        .admin-table td {
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          padding: 18px 16px;
+          box-sizing: border-box;
+          vertical-align: middle;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          box-sizing: border-box;
         }
-        .admin-table thead tr {
-          background-color: rgba(255, 255, 255, 0.05);
+
+        .admin-table th {
+          font-size: 18px;
+          font-weight: 700;
+          text-align: left;
+          background: rgba(255, 255, 255, 0.04);
         }
-        .admin-table tr:nth-child(even) {
-          background-color: rgba(255, 255, 255, 0.03);
+
+        .admin-table td {
+          font-size: 16px;
+          text-align: left;
+        }
+
+        .admin-table tbody tr:nth-child(even) {
+          background: rgba(255, 255, 255, 0.02);
+        }
+
+        .admin-table tbody tr:hover {
+          background: rgba(255, 255, 255, 0.04);
+          transition: 0.2s ease;
+        }
+
+        .users-table th:nth-child(1),
+        .users-table td:nth-child(1),
+        .users-table th:nth-child(6),
+        .users-table td:nth-child(6),
+        .users-table th:nth-child(7),
+        .users-table td:nth-child(7) {
+          text-align: center;
+        }
+
+        .role-select {
+          width: 100%;
+          min-width: 0;
+          background: #111;
+          color: white;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 10px;
+          padding: 12px;
+          font-weight: 600;
+          outline: none;
+        }
+
+        .role-select:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .status-toggle-btn {
+          padding: 8px 14px;
+          border-radius: 10px;
+          border: none;
+          cursor: pointer;
+          font-weight: 700;
+          color: white;
+          min-width: 110px;
+        }
+
+        .status-toggle-btn.active {
+          background: #52c41a;
+        }
+
+        .status-toggle-btn.blocked {
+          background: #ff4d4f;
+        }
+
+        .user-actions {
+          display: flex;
+          justify-content: center;
+          gap: 10px;
+          align-items: center;
+          flex-wrap: nowrap;
+        }
+
+        .danger-btn {
+          border-color: red !important;
+          color: red !important;
+        }
+
+        .text-center {
+          text-align: center !important;
         }
       `}</style>
+
       <div className="container">
         <div className="admin-hero">
           <div>
             <p className="eyebrow">Admin Console</p>
             <h1>Quản trị ứng dụng xem phim</h1>
-            <p className="muted">
-              Theo dõi doanh thu, đơn hàng, phim, suất chiếu và xử lý xác nhận đặt vé.
-            </p>
+            <p className="muted">Theo dõi doanh thu, đơn hàng, phim, suất chiếu và dữ liệu người dùng.</p>
           </div>
-          <button className="secondary-btn compact admin-refresh" onClick={loadAdminData} disabled={isLoading}>
+
+          <button
+            className="secondary-btn compact admin-refresh"
+            onClick={loadAdminData}
+            disabled={isLoading}
+          >
             <RefreshCw size={18} />
             Tải lại
           </button>
@@ -311,159 +425,116 @@ const AdminPage = () => {
         {message && <p className="section-state warning">{message}</p>}
 
         <div className="admin-tabs">
-          <button className={activeTab === "overview" ? "active" : ""} onClick={() => setActiveTab("overview")}>
+          <button
+            className={activeTab === "overview" ? "active" : ""}
+            onClick={() => setActiveTab("overview")}
+          >
             <BarChart3 size={18} /> Tổng quan
           </button>
-          <button className={activeTab === "movies" ? "active" : ""} onClick={() => setActiveTab("movies")}>
+
+          <button className={activeTab === "movies" ? "active" : ""} onClick={() => setActiveTab("movies")}
+          >
             <Clapperboard size={18} /> Phim
           </button>
-          <button className={activeTab === "showtimes" ? "active" : ""} onClick={() => setActiveTab("showtimes")}>
+
+          <button
+            className={activeTab === "showtimes" ? "active" : ""}
+            onClick={() => setActiveTab("showtimes")}
+          >
             <CalendarClock size={18} /> Suất chiếu
           </button>
-          <button className={activeTab === "bookings" ? "active" : ""} onClick={() => setActiveTab("bookings")}>
+
+          <button
+            className={activeTab === "bookings" ? "active" : ""}
+            onClick={() => setActiveTab("bookings")}
+          >
             <CreditCard size={18} /> Đơn hàng
           </button>
-          <button className={activeTab === "users" ? "active" : ""} onClick={() => setActiveTab("users")}>
+
+          <button className={activeTab === "users" ? "active" : ""} onClick={() => setActiveTab("users")}
+          >
             <Users size={18} /> Người dùng
           </button>
         </div>
 
         {activeTab === "overview" && (
-          <>
-            <div className="stats-grid admin-stats">
-              <div className="data-card admin-stat-card">
-                <Clapperboard size={22} />
-                <h2>{stats?.total_movies || 0}</h2>
-                <p>Phim</p>
-              </div>
-              <div className="data-card admin-stat-card">
-                <CreditCard size={22} />
-                <h2>{stats?.total_bookings || 0}</h2>
-                <p>Đơn hàng</p>
-              </div>
-              <div className="data-card admin-stat-card">
-                <Users size={22} />
-                <h2>{stats?.total_users || 0}</h2>
-                <p>Người dùng</p>
-              </div>
-              <div className="data-card admin-stat-card">
-                <BarChart3 size={22} />
-                <h2>{formatCurrency(stats?.total_revenue || 0)}</h2>
-                <p>Doanh thu</p>
-              </div>
-            </div>
-
-            <div className="admin-dashboard-grid">
-              <div className="data-card admin-chart-card">
-                <h2>Doanh thu theo tháng</h2>
-                <div className="revenue-chart">
-                  {(stats?.monthly_revenue || []).map((item: any) => (
-                    <div className="revenue-bar-item" key={item.month}>
-                      <div className="revenue-bar-track">
-                        <span style={{ height: `${Math.max((Number(item.revenue) / maxMonthlyRevenue) * 100, 6)}%` }} />
-                      </div>
-                      <small>{item.month}</small>
-                      <strong>{formatCurrency(item.revenue)}</strong>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="data-card admin-chart-card">
-                <h2>Hiệu suất đặt vé</h2>
-                <div className="status-stack">
-                  {(stats?.booking_status || []).map((item: any) => {
-                    const total = Number(stats?.total_bookings || 1);
-                    const percent = Math.round((Number(item.total) / total) * 100);
-                    return (
-                      <div className="status-meter" key={item.status}>
-                        <div>
-                          <span>{item.status}</span>
-                          <strong>{item.total} đơn</strong>
-                        </div>
-                        <div className="status-track">
-                          <span style={{ width: `${percent}%` }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="data-card admin-chart-card">
-                <h2>Top phim theo đơn hàng</h2>
-                <div className="stack">
-                  {(stats?.top_movies || []).map((movie: any, index: number) => (
-                    <div className="rank-row" key={movie.id}>
-                      <span>{index + 1}</span>
-                      <strong>{movie.title}</strong>
-                      <em>{movie.total_bookings} đơn</em>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </>
+          <OverviewSection stats={stats} maxMonthlyRevenue={maxMonthlyRevenue} />
         )}
 
         {activeTab === "movies" && (
-          <div className="admin-workspace">
-            <form className="form-panel admin-form" onSubmit={handleSubmitMovie}>
-              <h2>{movieForm.id ? "Sửa phim" : "Thêm phim"}</h2>
-              <input required placeholder="Tên phim" value={movieForm.title} onChange={(e) => setMovieForm({ ...movieForm, title: e.target.value })} />
-              <input placeholder="Mô tả" value={movieForm.description} onChange={(e) => setMovieForm({ ...movieForm, description: e.target.value })} />
-              <input required type="number" min="1" placeholder="Thời lượng (phút)" value={movieForm.duration} onChange={(e) => setMovieForm({ ...movieForm, duration: e.target.value })} />
-              <input type="date" value={movieForm.release_date} onChange={(e) => setMovieForm({ ...movieForm, release_date: e.target.value })} />
-              <input placeholder="Poster URL" value={movieForm.poster_url} onChange={(e) => setMovieForm({ ...movieForm, poster_url: e.target.value })} />
-              <input placeholder="Trailer URL" value={movieForm.trailer_url} onChange={(e) => setMovieForm({ ...movieForm, trailer_url: e.target.value })} />
-              <input placeholder="Ngôn ngữ" value={movieForm.language} onChange={(e) => setMovieForm({ ...movieForm, language: e.target.value })} />
-              <input type="number" min="0" max="10" step="0.1" placeholder="Đánh giá" value={movieForm.rating} onChange={(e) => setMovieForm({ ...movieForm, rating: e.target.value })} />
-              <select value={movieForm.status} onChange={(e) => setMovieForm({ ...movieForm, status: e.target.value })}>
-                <option value="NOW_SHOWING">Đang chiếu</option>
-                <option value="COMING_SOON">Sắp chiếu</option>
-                <option value="ENDED">Ngừng chiếu</option>
-              </select>
-              <button className="primary-btn form-submit">
-                <Plus size={18} />
-                Lưu phim
-              </button>
-            </form>
-
-            <div className="data-card admin-table-card">
-              <h2>Danh sách phim</h2>
-              <div className="admin-table">
-                {movies.map((movie) => (
-                  <div className="admin-table-row movie-admin-row" key={movie.id}>
-                    <strong>{movie.title}</strong>
-                    <span>{movie.status}</span>
-                    <span>{movie.duration || 0} phút</span>
-                    <button title="Sửa phim" onClick={() => editMovie(movie)}><Edit3 size={16} /></button>
-                    <button title="Xóa phim" onClick={async () => { await deleteAdminMovie(movie.id); await loadAdminData(); }}><Trash2 size={16} /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <MoviesSection
+            movies={movies}
+            movieForm={movieForm}
+            setMovieForm={setMovieForm}
+            handleSubmitMovie={handleSubmitMovie}
+            editMovie={editMovie}
+            deleteMovie={async (movieId) => {
+              await deleteAdminMovie(movieId);
+              await loadAdminData();
+            }}
+          />
         )}
 
         {activeTab === "showtimes" && (
           <div className="admin-workspace">
             <form className="form-panel admin-form" onSubmit={handleSubmitShowtime}>
               <h2>{showtimeForm.id ? "Sửa suất chiếu" : "Thêm suất chiếu"}</h2>
-              <select required value={showtimeForm.movie_id} onChange={(e) => setShowtimeForm({ ...showtimeForm, movie_id: e.target.value })}>
+
+              <select
+                required
+                value={showtimeForm.movie_id}
+                onChange={(e) =>
+                  setShowtimeForm({ ...showtimeForm, movie_id: e.target.value })
+                }
+              >
                 <option value="">Chọn phim</option>
                 {movies.map((movie) => (
-                  <option value={movie.id} key={movie.id}>{movie.title}</option>
+                  <option value={movie.id} key={movie.id}>
+                    {movie.title}
+                  </option>
                 ))}
               </select>
-              <input required type="number" min="1" placeholder="Room ID" value={showtimeForm.room_id} onChange={(e) => setShowtimeForm({ ...showtimeForm, room_id: e.target.value })} />
-              <input required type="datetime-local" value={showtimeForm.start_time} onChange={(e) => setShowtimeForm({ ...showtimeForm, start_time: e.target.value })} />
-              <input required type="datetime-local" value={showtimeForm.end_time} onChange={(e) => setShowtimeForm({ ...showtimeForm, end_time: e.target.value })} />
-              <select value={showtimeForm.status} onChange={(e) => setShowtimeForm({ ...showtimeForm, status: e.target.value })}>
+
+              <input
+                required
+                type="number"
+                min="1"
+                placeholder="Room ID"
+                value={showtimeForm.room_id}
+                onChange={(e) =>
+                  setShowtimeForm({ ...showtimeForm, room_id: e.target.value })
+                }
+              />
+
+              <input
+                required
+                type="datetime-local"
+                value={showtimeForm.start_time}
+                onChange={(e) =>
+                  setShowtimeForm({ ...showtimeForm, start_time: e.target.value })
+                }
+              />
+
+              <input
+                required
+                type="datetime-local"
+                value={showtimeForm.end_time}
+                onChange={(e) =>
+                  setShowtimeForm({ ...showtimeForm, end_time: e.target.value })
+                }
+              />
+
+              <select
+                value={showtimeForm.status}
+                onChange={(e) =>
+                  setShowtimeForm({ ...showtimeForm, status: e.target.value })
+                }
+              >
                 <option value="OPEN">Mở bán</option>
                 <option value="FULL">Đã đầy</option>
                 <option value="CANCELLED">Đã hủy</option>
               </select>
+
               <button className="primary-btn form-submit">
                 <Plus size={18} />
                 Lưu suất chiếu
@@ -472,15 +543,30 @@ const AdminPage = () => {
 
             <div className="data-card admin-table-card">
               <h2>Danh sách suất chiếu</h2>
+
               <div className="admin-table">
                 {showtimes.map((showtime) => (
                   <div className="admin-table-row showtime-admin-row" key={showtime.id}>
                     <strong>{showtime.movie_title}</strong>
-                    <span>{showtime.cinema_name} - {showtime.room_name}</span>
+                    <span>
+                      {showtime.cinema_name} - {showtime.room_name}
+                    </span>
                     <span>{formatDateTime(showtime.start_time)}</span>
                     <span>{showtime.status}</span>
-                    <button title="Sửa suất chiếu" onClick={() => editShowtime(showtime)}><Edit3 size={16} /></button>
-                    <button title="Xóa suất chiếu" onClick={async () => { await deleteAdminShowtime(showtime.id); await loadAdminData(); }}><Trash2 size={16} /></button>
+
+                    <button title="Sửa suất chiếu" onClick={() => editShowtime(showtime)}>
+                      <Edit3 size={16} />
+                    </button>
+
+                    <button
+                      title="Xóa suất chiếu"
+                      onClick={async () => {
+                        await deleteAdminShowtime(showtime.id);
+                        await loadAdminData();
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -491,19 +577,37 @@ const AdminPage = () => {
         {activeTab === "bookings" && (
           <div className="data-card admin-table-card">
             <h2>Xác nhận đơn hàng</h2>
+
             <div className="admin-table">
               {bookings.map((booking) => (
                 <div className="admin-table-row booking-admin-row" key={booking.id}>
                   <strong>{booking.booking_code}</strong>
-                  <span>{booking.customer_name || booking.customer_email || "Khách hàng"}</span>
+                  <span>
+                    {booking.customer_name || booking.customer_email || "Khách hàng"}
+                  </span>
                   <span>{booking.movie_title}</span>
                   <span>{formatDateTime(booking.start_time)}</span>
                   <span>{formatCurrency(booking.total_amount)}</span>
-                  <span className={`admin-status-pill ${booking.booking_status.toLowerCase()}`}>{booking.booking_status}</span>
-                  <button title="Xác nhận đơn" disabled={booking.booking_status === "CONFIRMED"} onClick={() => handleBookingStatus(booking.id, "CONFIRMED")}>
+
+                  <span
+                    className={`admin-status-pill ${booking.booking_status.toLowerCase()}`}
+                  >
+                    {booking.booking_status}
+                  </span>
+
+                  <button
+                    title="Xác nhận đơn"
+                    disabled={booking.booking_status === "CONFIRMED"}
+                    onClick={() => handleBookingStatus(booking.id, "CONFIRMED")}
+                  >
                     <CheckCircle2 size={16} />
                   </button>
-                  <button title="Hủy đơn" disabled={booking.booking_status === "CANCELLED"} onClick={() => handleBookingStatus(booking.id, "CANCELLED")}>
+
+                  <button
+                    title="Hủy đơn"
+                    disabled={booking.booking_status === "CANCELLED"}
+                    onClick={() => handleBookingStatus(booking.id, "CANCELLED")}
+                  >
                     <XCircle size={16} />
                   </button>
                 </div>
@@ -517,92 +621,101 @@ const AdminPage = () => {
             <div className="data-card">
               <div className="section-header">
                 <h2>Quản lý người dùng</h2>
+
                 <div className="filters-group">
-                  <input 
-                    type="text" 
-                    placeholder="Tìm tên, email..." 
-                    value={userFilters.search} 
-                    onChange={(e) => handleUserFilterChange({ search: e.target.value })}
+                  <input
+                    type="text"
+                    placeholder="Tìm tên, email..."
+                    value={userFilters.search}
+                    onChange={(e) =>
+                      handleUserFilterChange({ search: e.target.value })
+                    }
                     className="admin-filter-input"
                   />
-                  <select 
-                    value={userFilters.role} 
+
+                  <select
+                    value={userFilters.role}
                     onChange={(e) => handleUserFilterChange({ role: e.target.value })}
                     className="admin-filter-select"
                   >
-                    <option value="">Tất cả Role</option>
+                    <option value="">Tất cả vai trò</option>
                     <option value="CUSTOMER">Customer</option>
-                    <option value="EMPLOYEE">Employee</option>
                     <option value="ADMIN">Admin</option>
                   </select>
                 </div>
               </div>
 
               <div className="table-responsive">
-                <table className="admin-table">
+                <table className="admin-table users-table">
+                  <colgroup>
+                    <col style={{ width: "70px" }} />
+                    <col style={{ width: "220px" }} />
+                    <col style={{ width: "300px" }} />
+                    <col style={{ width: "190px" }} />
+                    <col style={{ width: "200px" }} />
+                    <col style={{ width: "170px" }} />
+                    <col style={{ width: "260px" }} />
+                  </colgroup>
+
                   <thead>
                     <tr>
-                      <th style={{ width: "60px", textAlign: "left" }}>ID</th>
-                      <th style={{ textAlign: "left" }}>Họ tên</th>
-                      <th style={{ textAlign: "left" }}>Email</th>
-                      <th style={{ textAlign: "left" }}>Số điện thoại</th>
-                      <th style={{ width: "160px", textAlign: "left" }}>Roles</th>
-                      <th style={{ width: "130px", textAlign: "center" }}>Trạng thái</th>
-                      <th style={{ textAlign: "center" }}>Hành động</th>
+                      <th>ID</th>
+                      <th>Họ tên</th>
+                      <th>Email</th>
+                      <th>Số điện thoại</th>
+                      <th>Vai trò</th>
+                      <th>Trạng thái</th>
+                      <th>Hành động</th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {users.length > 0 ? (
                       users.map((user) => (
                         <tr key={user.id}>
-                          <td style={{ textAlign: "left" }}>{user.id}</td>
-                          <td style={{ textAlign: "left" }}>{user.full_name}</td>
-                          <td style={{ textAlign: "left" }}>{user.email}</td>
-                          <td style={{ textAlign: "left" }}>{user.phone}</td>
-                          <td style={{ width: "160px", textAlign: "left" }}>
-                            <select 
-                              value={user.roles} 
+                          <td>{user.id}</td>
+                          <td title={user.full_name}>{user.full_name}</td>
+                          <td title={user.email}>{user.email}</td>
+                          <td title={user.phone || ""}>{user.phone || "-"}</td>
+
+                          <td>
+                            <select
+                              value={user.roles}
                               onChange={(e) => handleUserRoleChange(user.id, e.target.value)}
                               className="role-select"
                               disabled={user.is_active === "BLOCKED"}
                             >
                               <option value="CUSTOMER">CUSTOMER</option>
-                              <option value="EMPLOYEE">EMPLOYEE</option>
                               <option value="ADMIN">ADMIN</option>
                             </select>
                           </td>
-                          <td style={{ textAlign: "center" }}>
-                            <button 
+
+                          <td>
+                            <button
                               className={`status-toggle-btn ${user.is_active === "ACTIVE" ? "active" : "blocked"}`}
-                              onClick={() => {
-                                handleUserStatusChange(user.id, user.is_active === "ACTIVE" ? "BLOCKED" : "ACTIVE");
-                              }}
-                              style={{
-                                padding: "4px 12px",
-                                borderRadius: "4px",
-                                border: "none",
-                                cursor: "pointer",
-                                fontWeight: "bold",
-                                color: "white",
-                                backgroundColor: user.is_active === "ACTIVE" ? "#52c41a" : "#ff4d4f",
-                                minWidth: "100px",
-                              }}
+                              onClick={() =>
+                                handleUserStatusChange(
+                                  user.id,
+                                  user.is_active === "ACTIVE" ? "BLOCKED" : "ACTIVE"
+                                )
+                              }
                             >
                               {user.is_active === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
                             </button>
                           </td>
-                          <td style={{ textAlign: "center" }}>
-                            <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                              <button 
-                                className="secondary-btn compact" 
+
+                          <td>
+                            <div className="user-actions">
+                              <button
+                                className="secondary-btn compact"
                                 onClick={() => handleViewUserDetail(user.id)}
                               >
                                 Chi tiết
                               </button>
+
                               {user.roles !== "ADMIN" && user.is_active === "BLOCKED" && (
-                                <button 
-                                  className="secondary-btn compact" 
-                                  style={{ color: "red", borderColor: "red" }}
+                                <button
+                                  className="secondary-btn compact danger-btn"
                                   onClick={async () => {
                                     if (window.confirm("Bạn có chắc chắn muốn xóa tài khoản này?")) {
                                       try {
@@ -610,14 +723,14 @@ const AdminPage = () => {
                                         notification.success({ message: "Xóa tài khoản thành công" });
                                         await loadAdminData();
                                       } catch (e: any) {
-                                        notification.error({ 
-                                          message: "Lỗi khi xóa", 
-                                          description: e.response?.data?.message || "Không thể xóa tài khoản." 
+                                        notification.error({
+                                          message: "Lỗi khi xóa",
+                                          description: e.response?.data?.message || "Không thể xóa tài khoản.",
                                         });
                                       }
                                     }
                                   }}
-                                  >
+                                >
                                   Xóa
                                 </button>
                               )}
@@ -627,7 +740,9 @@ const AdminPage = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={7} className="text-center">Không tìm thấy người dùng nào.</td>
+                        <td colSpan={7} className="text-center">
+                          Không tìm thấy người dùng nào.
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -638,38 +753,52 @@ const AdminPage = () => {
         )}
       </div>
 
-      <Modal 
-        title="Chi tiết người dùng" 
-        open={isUserModalVisible} 
-        onCancel={() => setIsUserModalVisible(false)} 
+      <Visible
+        title="Chi tiết người dùng"
+        visible={isUserModalVisible}
+        onCancel={() => {
+          setIsUserModalVisible(false);
+          setSelectedUser(null);
+        }}
         footer={null}
       >
         <div style={{ display: "grid", gap: "12px", padding: "10px 0" }}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Họ tên:</strong> <span>{selectedUser?.full_name}</span>
+            <strong>Họ tên:</strong>
+            <span>{selectedUser?.full_name}</span>
           </div>
+
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Email:</strong> <span>{selectedUser?.email}</span>
+            <strong>Email:</strong>
+            <span>{selectedUser?.email}</span>
           </div>
+
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Số điện thoại:</strong> <span>{selectedUser?.phone}</span>
+            <strong>Số điện thoại:</strong>
+            <span>{selectedUser?.phone || "-"}</span>
           </div>
+
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Roles:</strong> <span>{selectedUser?.roles}</span>
+            <strong>Vai trò:</strong>
+            <span>{selectedUser?.roles}</span>
           </div>
+
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Trạng thái:</strong> 
-            <span style={{ 
-              color: selectedUser?.is_active === "ACTIVE" ? "#52c41a" : "#ff4d4f",
-              fontWeight: "bold" 
-            }}>
+            <strong>Trạng thái:</strong>
+            <span
+              style={{
+                color: selectedUser?.is_active === "ACTIVE" ? "#52c41a" : "#ff4d4f",
+                fontWeight: "bold",
+              }}
+            >
               {selectedUser?.is_active === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
             </span>
           </div>
         </div>
-      </Modal>
+      </Visible>
     </section>
   );
 };
 
 export default AdminPage;
+

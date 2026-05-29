@@ -920,9 +920,11 @@ select {
 .admin-table-row strong,
 .admin-table-row span {
   min-width: 0;
+  display: inline-block;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .admin-table-row span {
