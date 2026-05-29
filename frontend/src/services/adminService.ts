@@ -70,7 +70,8 @@ export type AdminUser = {
   full_name: string;
   email: string;
   phone: string;
-  is_active: "ACTIVE" | "BLOCKED";
+  is_active?: "ACTIVE" | "BLOCKED";
+  status?: "ACTIVE" | "BLOCKED";
   roles: string;
 };
 

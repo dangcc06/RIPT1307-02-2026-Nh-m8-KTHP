@@ -5,9 +5,10 @@ import { formatCurrency } from "../../../utils/format";
 type OverviewProps = {
   stats: any;
   maxMonthlyRevenue: number;
+  maxWeeklyRevenue: number;
 };
 
-const Overview: React.FC<OverviewProps> = ({ stats, maxMonthlyRevenue }) => {
+const Overview: React.FC<OverviewProps> = ({ stats, maxMonthlyRevenue, maxWeeklyRevenue }) => {
   return (
     <>
       <div className="stats-grid admin-stats">
@@ -25,6 +26,18 @@ const Overview: React.FC<OverviewProps> = ({ stats, maxMonthlyRevenue }) => {
 
         <div className="data-card admin-stat-card">
           <Users size={22} />
+          <h2>{stats?.today_tickets || 0}</h2>
+          <p>Vé hôm nay</p>
+        </div>
+
+        <div className="data-card admin-stat-card">
+          <BarChart3 size={22} />
+          <h2>{formatCurrency(stats?.today_revenue || 0)}</h2>
+          <p>Doanh thu hôm nay</p>
+        </div>
+
+        <div className="data-card admin-stat-card">
+          <Users size={22} />
           <h2>{stats?.total_users || 0}</h2>
           <p>Người dùng</p>
         </div>
@@ -32,28 +45,27 @@ const Overview: React.FC<OverviewProps> = ({ stats, maxMonthlyRevenue }) => {
         <div className="data-card admin-stat-card">
           <BarChart3 size={22} />
           <h2>{formatCurrency(stats?.total_revenue || 0)}</h2>
-          <p>Doanh thu</p>
+          <p>Tổng doanh thu</p>
         </div>
       </div>
 
       <div className="admin-dashboard-grid">
         <div className="data-card admin-chart-card">
-          <h2>Doanh thu theo tháng</h2>
-
+          <h2>Doanh thu 7 ngày gần nhất</h2>
           <div className="revenue-chart">
-            {(stats?.monthly_revenue || []).map((item: any) => (
-              <div className="revenue-bar-item" key={item.month}>
+            {(stats?.last_7d_revenue || []).map((item: any) => (
+              <div className="revenue-bar-item" key={item.day}>
                 <div className="revenue-bar-track">
                   <span
                     style={{
                       height: `${Math.max(
-                        (Number(item.revenue) / maxMonthlyRevenue) * 100,
+                        (Number(item.revenue) / maxWeeklyRevenue) * 100,
                         6
                       )}%`,
                     }}
                   />
                 </div>
-                <small>{item.month}</small>
+                <small>{item.day}</small>
                 <strong>{formatCurrency(item.revenue)}</strong>
               </div>
             ))}
@@ -85,14 +97,23 @@ const Overview: React.FC<OverviewProps> = ({ stats, maxMonthlyRevenue }) => {
         </div>
 
         <div className="data-card admin-chart-card">
-          <h2>Top phim theo đơn hàng</h2>
-
+          <h2>Top rạp theo doanh thu</h2>
           <div className="stack">
-            {(stats?.top_movies || []).map((movie: any, index: number) => (
-              <div className="rank-row" key={movie.id}>
+            {(stats?.top_cinemas || []).map((cinema: any, index: number) => (
+              <div className="rank-row" key={cinema.id}>
                 <span>{index + 1}</span>
-                <strong>{movie.title}</strong>
-                <em>{movie.total_bookings} đơn</em>
+                <strong>{cinema.cinema_name}</strong>
+                <em>{formatCurrency(cinema.revenue)}</em>
+              </div>
+            ))}
+          </div>
+          <h2 style={{ marginTop: 24 }}>Top combo bán chạy</h2>
+          <div className="stack">
+            {(stats?.top_combos || []).map((combo: any, index: number) => (
+              <div className="rank-row" key={combo.id}>
+                <span>{index + 1}</span>
+                <strong>{combo.name}</strong>
+                <em>{combo.total_quantity} cái</em>
               </div>
             ))}
           </div>

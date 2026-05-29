@@ -104,19 +104,25 @@ const UsersSection: React.FC<UsersSectionProps> = ({
                     </td>
 
                     <td>
-                      <button
-                        className={`status-toggle-btn ${
-                          user.is_active === "ACTIVE" ? "active" : "blocked"
-                        }`}
-                        onClick={() =>
-                          onUserStatusChange(
-                            user.id,
-                            user.is_active === "ACTIVE" ? "BLOCKED" : "ACTIVE"
-                          )
-                        }
-                      >
-                        {user.is_active === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
-                      </button>
+<button
+  className={`admin-status-pill ${
+    user.is_active === "ACTIVE"
+      ? "status-active"
+      : "status-locked"
+  }`}
+  onClick={() =>
+    onUserStatusChange(
+      user.id,
+      user.is_active === "ACTIVE"
+        ? "BLOCKED"
+        : "ACTIVE"
+    )
+  }
+>
+  {user.is_active === "ACTIVE"
+    ? "Hoạt động"
+    : "Bị khóa"}
+</button>
                     </td>
 
                     <td>

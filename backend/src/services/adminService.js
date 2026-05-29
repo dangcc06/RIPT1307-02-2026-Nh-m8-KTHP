@@ -45,6 +45,86 @@ const getDashboardStatistics = async () => {
     LIMIT 6
     `
   );
+  const [[todayRevenue]] = await pool.execute(
+    `
+    SELECT COALESCE(SUM(p.amount), 0) AS today_revenue
+    FROM payments p
+    JOIN bookings b ON b.id = p.booking_id
+    JOIN showtimes s ON s.id = b.showtime_id
+    WHERE p.payment_status = 'SUCCESS'
+      AND DATE(s.start_time) = CURDATE()
+    `
+  );
+  const [[todayTickets]] = await pool.execute(
+    `
+    SELECT COUNT(bs.seat_id) AS today_tickets
+    FROM booking_seats bs
+    JOIN bookings b ON b.id = bs.booking_id
+    JOIN showtimes s ON s.id = b.showtime_id
+    JOIN payments p ON p.booking_id = b.id
+    WHERE p.payment_status = 'SUCCESS'
+      AND DATE(s.start_time) = CURDATE()
+    `
+  );
+  const [topCinemas] = await pool.execute(
+    `
+    SELECT c.id, c.name AS cinema_name, COALESCE(SUM(p.amount), 0) AS revenue
+    FROM cinemas c
+    JOIN rooms r ON r.cinema_id = c.id
+    JOIN showtimes s ON s.room_id = r.id
+    JOIN bookings b ON b.showtime_id = s.id
+    JOIN payments p ON p.booking_id = b.id
+    WHERE p.payment_status = 'SUCCESS'
+    GROUP BY c.id
+    ORDER BY revenue DESC
+    LIMIT 5
+    `
+  );
+  const [topCombos] = await pool.execute(
+    `
+    SELECT f.id, f.name, SUM(bf.quantity) AS total_quantity,
+           COALESCE(SUM(bf.quantity * bf.unit_price), 0) AS total_revenue
+    FROM booking_foods bf
+    JOIN foods f ON f.id = bf.food_id
+    JOIN food_categories fc ON fc.id = f.category_id
+    JOIN bookings b ON b.id = bf.booking_id
+    JOIN payments p ON p.booking_id = b.id
+    WHERE p.payment_status = 'SUCCESS'
+      AND fc.name = 'Combo'
+    GROUP BY f.id
+    ORDER BY total_quantity DESC
+    LIMIT 5
+    `
+  );
+  const [sevenDayRevenueRows] = await pool.execute(
+    `
+    SELECT DATE(s.start_time) AS day, COALESCE(SUM(p.amount), 0) AS revenue
+    FROM payments p
+    JOIN bookings b ON b.id = p.booking_id
+    JOIN showtimes s ON s.id = b.showtime_id
+    WHERE p.payment_status = 'SUCCESS'
+      AND DATE(s.start_time) BETWEEN DATE_SUB(CURDATE(), INTERVAL 6 DAY) AND CURDATE()
+    GROUP BY DATE(s.start_time)
+    ORDER BY day ASC
+    `
+  );
+
+  const revenueByDay = new Map(
+    sevenDayRevenueRows.map((row) => [row.day, Number(row.revenue)])
+  );
+
+  const last7DaysRevenue = Array.from({ length: 7 }, (_, idx) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - idx));
+    const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
+      date.getDate()
+    ).padStart(2, "0")}`;
+    return {
+      day,
+      revenue: revenueByDay.get(day) ?? 0,
+    };
+  });
 
   return {
     total_movies: movieStats.total_movies,
@@ -52,9 +132,14 @@ const getDashboardStatistics = async () => {
     pending_bookings: pendingBookingStats.pending_bookings,
     total_users: userStats.total_users,
     total_revenue: revenueStats.total_revenue,
+    today_revenue: todayRevenue.today_revenue,
+    today_tickets: todayTickets.today_tickets,
     top_movies: topMovies,
+    top_cinemas: topCinemas,
+    top_combos: topCombos,
     booking_status: bookingStatus,
     monthly_revenue: monthlyRevenue.reverse(),
+    last_7d_revenue: last7DaysRevenue,
   };
 };
 

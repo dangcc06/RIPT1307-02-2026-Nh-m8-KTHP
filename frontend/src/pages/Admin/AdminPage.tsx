@@ -41,8 +41,6 @@ import { formatCurrency, formatDateTime } from "../../utils/format";
 
 type AdminTab = "overview" | "movies" | "showtimes" | "bookings" | "users";
 
-const Visible = Modal;
-
 const emptyMovieForm = {
   id: "",
   title: "",
@@ -115,6 +113,11 @@ const AdminPage = () => {
   const maxMonthlyRevenue = useMemo(() => {
     const values =
       stats?.monthly_revenue?.map((item: any) => Number(item.revenue)) || [0];
+    return Math.max(...values, 1);
+  }, [stats]);
+
+  const maxWeeklyRevenue = useMemo(() => {
+    const values = stats?.last_7d_revenue?.map((item: any) => Number(item.revenue)) || [0];
     return Math.max(...values, 1);
   }, [stats]);
 
@@ -291,118 +294,13 @@ const AdminPage = () => {
     }
   };
 
+  const selectedUserStatus = String(selectedUser?.is_active ?? selectedUser?.status).toUpperCase();
+
+  const isSelectedUserActive =
+    selectedUserStatus === "ACTIVE" || selectedUserStatus === "TRUE";
+
   return (
     <section className="app-page admin-page">
-      <style>{`
-        .table-responsive {
-          width: 100%;
-          overflow-x: auto;
-          border-radius: 14px;
-        }
-
-        .admin-table {
-          width: 100%;
-          min-width: 1450px;
-          border-collapse: collapse;
-          table-layout: fixed;
-          color: white;
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(255, 255, 255, 0.02);
-        }
-
-        .admin-table th,
-        .admin-table td {
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          padding: 18px 16px;
-          box-sizing: border-box;
-          vertical-align: middle;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        .admin-table th {
-          font-size: 18px;
-          font-weight: 700;
-          text-align: left;
-          background: rgba(255, 255, 255, 0.04);
-        }
-
-        .admin-table td {
-          font-size: 16px;
-          text-align: left;
-        }
-
-        .admin-table tbody tr:nth-child(even) {
-          background: rgba(255, 255, 255, 0.02);
-        }
-
-        .admin-table tbody tr:hover {
-          background: rgba(255, 255, 255, 0.04);
-          transition: 0.2s ease;
-        }
-
-        .users-table th:nth-child(1),
-        .users-table td:nth-child(1),
-        .users-table th:nth-child(6),
-        .users-table td:nth-child(6),
-        .users-table th:nth-child(7),
-        .users-table td:nth-child(7) {
-          text-align: center;
-        }
-
-        .role-select {
-          width: 100%;
-          min-width: 0;
-          background: #111;
-          color: white;
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 10px;
-          padding: 12px;
-          font-weight: 600;
-          outline: none;
-        }
-
-        .role-select:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .status-toggle-btn {
-          padding: 8px 14px;
-          border-radius: 10px;
-          border: none;
-          cursor: pointer;
-          font-weight: 700;
-          color: white;
-          min-width: 110px;
-        }
-
-        .status-toggle-btn.active {
-          background: #52c41a;
-        }
-
-        .status-toggle-btn.blocked {
-          background: #ff4d4f;
-        }
-
-        .user-actions {
-          display: flex;
-          justify-content: center;
-          gap: 10px;
-          align-items: center;
-          flex-wrap: nowrap;
-        }
-
-        .danger-btn {
-          border-color: red !important;
-          color: red !important;
-        }
-
-        .text-center {
-          text-align: center !important;
-        }
-      `}</style>
 
       <div className="container">
         <div className="admin-hero">
@@ -458,7 +356,11 @@ const AdminPage = () => {
         </div>
 
         {activeTab === "overview" && (
-          <OverviewSection stats={stats} maxMonthlyRevenue={maxMonthlyRevenue} />
+          <OverviewSection
+            stats={stats}
+            maxMonthlyRevenue={maxMonthlyRevenue}
+            maxWeeklyRevenue={maxWeeklyRevenue}
+          />
         )}
 
         {activeTab === "movies" && (
@@ -691,27 +593,31 @@ const AdminPage = () => {
                           </td>
 
                           <td>
-                            <button
-                              className={`status-toggle-btn ${user.is_active === "ACTIVE" ? "active" : "blocked"}`}
-                              onClick={() =>
-                                handleUserStatusChange(
-                                  user.id,
-                                  user.is_active === "ACTIVE" ? "BLOCKED" : "ACTIVE"
-                                )
-                              }
-                            >
-                              {user.is_active === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
-                            </button>
+                             <button
+  type="button"
+  className={`admin-status-pill ${
+    user.is_active === "ACTIVE" ? "confirmed" : "cancelled"
+  }`}
+  onClick={() =>
+    handleUserStatusChange(
+      user.id,
+      user.is_active === "ACTIVE" ? "BLOCKED" : "ACTIVE"
+    )
+  }
+>
+  {user.is_active === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
+</button>
                           </td>
 
                           <td>
                             <div className="user-actions">
                               <button
-                                className="secondary-btn compact"
-                                onClick={() => handleViewUserDetail(user.id)}
-                              >
-                                Chi tiết
-                              </button>
+  type="button"
+  className="secondary-btn compact"
+  onClick={() => handleViewUserDetail(user.id)}
+>
+  Chi tiết
+</button>
 
                               {user.roles !== "ADMIN" && user.is_active === "BLOCKED" && (
                                 <button
@@ -753,9 +659,9 @@ const AdminPage = () => {
         )}
       </div>
 
-      <Visible
+      <Modal
         title="Chi tiết người dùng"
-        visible={isUserModalVisible}
+        open={isUserModalVisible}
         onCancel={() => {
           setIsUserModalVisible(false);
           setSelectedUser(null);
@@ -787,15 +693,15 @@ const AdminPage = () => {
             <strong>Trạng thái:</strong>
             <span
               style={{
-                color: selectedUser?.is_active === "ACTIVE" ? "#52c41a" : "#ff4d4f",
+                color: isSelectedUserActive ? "#52c41a" : "#ff4d4f",
                 fontWeight: "bold",
               }}
             >
-              {selectedUser?.is_active === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
+              {isSelectedUserActive ? "Hoạt động" : "Bị khóa"}
             </span>
           </div>
         </div>
-      </Visible>
+      </Modal>
     </section>
   );
 };

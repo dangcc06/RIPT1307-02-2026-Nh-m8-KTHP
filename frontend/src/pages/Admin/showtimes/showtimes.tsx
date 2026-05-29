@@ -1,4 +1,4 @@
-import React, { FormEvent } from "react";
+import React from "react";
 import { Edit3, Plus, Trash2 } from "lucide-react";
 import type { ApiShowtime, ApiMovie } from "../../../types/api";
 
@@ -16,10 +16,24 @@ type ShowtimesSectionProps = {
   movies: ApiMovie[];
   showtimeForm: ShowtimeForm;
   setShowtimeForm: (form: ShowtimeForm) => void;
-  handleSubmitShowtime: (event: FormEvent) => void;
+  handleSubmitShowtime: (event: React.FormEvent<HTMLFormElement>) => void;
   editShowtime: (showtime: ApiShowtime) => void;
   deleteShowtime: (showtimeId: number) => Promise<void>;
   formatDateTime: (value: string) => string;
+};
+
+const cellStyle: React.CSSProperties = {
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+};
+
+const actionButtonStyle: React.CSSProperties = {
+  width: "36px",
+  height: "36px",
+  minWidth: "36px",
+  justifySelf: "center",
 };
 
 const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
@@ -33,7 +47,15 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
   formatDateTime,
 }) => {
   return (
-    <div className="admin-workspace">
+    <div
+      className="admin-workspace"
+      style={{
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
+      }}
+    >
       <form className="form-panel admin-form" onSubmit={handleSubmitShowtime}>
         <h2>{showtimeForm.id ? "Sửa suất chiếu" : "Thêm suất chiếu"}</h2>
 
@@ -98,25 +120,57 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
         </button>
       </form>
 
-      <div className="data-card admin-table-card">
+      <div
+        className="admin-table-card"
+        style={{
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          overflow: "hidden",
+          boxSizing: "border-box",
+        }}
+      >
         <h2>Danh sách suất chiếu</h2>
 
-        <div className="admin-table">
+        <div
+          className="admin-table"
+          style={{
+            width: "100%",
+            maxWidth: "100%",
+            overflowX: "auto",
+            boxSizing: "border-box",
+          }}
+        >
           {showtimes.map((showtime) => (
             <div
               className="admin-table-row showtime-admin-row"
               key={showtime.id}
+              style={{
+                width: "100%",
+                minWidth: "680px",
+                boxSizing: "border-box",
+                display: "grid",
+                alignItems: "center",
+                gap: "12px",
+                gridTemplateColumns: "1.6fr 1.6fr 1.2fr 0.8fr 40px 40px",
+              }}
             >
-              <strong>{showtime.movie_title}</strong>
-              <span>
+              <strong style={cellStyle}>{showtime.movie_title}</strong>
+
+              <span style={cellStyle}>
                 {showtime.cinema_name} - {showtime.room_name}
               </span>
-              <span>{formatDateTime(showtime.start_time)}</span>
-              <span>{showtime.status}</span>
+
+              <span style={cellStyle}>
+                {formatDateTime(showtime.start_time)}
+              </span>
+
+              <span style={cellStyle}>{showtime.status}</span>
 
               <button
                 title="Sửa suất chiếu"
                 onClick={() => editShowtime(showtime)}
+                style={actionButtonStyle}
               >
                 <Edit3 size={16} />
               </button>
@@ -126,6 +180,7 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
                 onClick={async () => {
                   await deleteShowtime(showtime.id);
                 }}
+                style={actionButtonStyle}
               >
                 <Trash2 size={16} />
               </button>
@@ -138,4 +193,3 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
 };
 
 export default ShowtimesSection;
-

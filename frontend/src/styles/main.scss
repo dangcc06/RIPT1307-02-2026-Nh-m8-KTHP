@@ -900,19 +900,27 @@ select {
 
 .admin-table-card {
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
-.admin-table {
+div.admin-table {
+  width: 100%;
+  max-width: 100%;
   display: grid;
   gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
 }
 
 .admin-table-row {
   display: grid;
   align-items: center;
   gap: 10px;
+  width: 100%;
   min-width: 760px;
+  box-sizing: border-box;
   padding: 12px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
 }
@@ -920,11 +928,10 @@ select {
 .admin-table-row strong,
 .admin-table-row span {
   min-width: 0;
-  display: inline-block;
+  display: block;
   overflow: hidden;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-table-row span {
@@ -934,25 +941,44 @@ select {
 }
 
 .movie-admin-row {
-  grid-template-columns: minmax(220px, 1fr) 140px 90px 42px 42px;
+  grid-template-columns: minmax(180px, 1fr) 120px 80px 42px 42px;
 }
 
+.showtime-admin-row span:nth-child(2) {
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.booking-admin-row span:nth-child(5) {
+  white-space: nowrap;
+  text-align: right;
+}
 .showtime-admin-row {
-  grid-template-columns: minmax(200px, 1fr) minmax(180px, 0.8fr) 150px 95px 42px 42px;
+  min-width: 1100px;
+  grid-template-columns: 240px 360px 170px 110px 42px 42px;
 }
 
 .booking-admin-row {
-  grid-template-columns: 110px minmax(140px, 0.8fr) minmax(180px, 1fr) 150px 120px 112px 42px 42px;
+  min-width: 1250px;
+  grid-template-columns: 100px 180px 280px 170px 150px 130px 42px 42px;
 }
 
-.admin-table-row button {
+.admin-table-row button:not(.secondary-btn) {
   display: grid;
   place-items: center;
   width: 38px;
   height: 38px;
+  min-width: 38px;
   border-radius: 8px;
   background: #2d2d2d;
   color: #fff;
+}
+
+.admin-table-row .secondary-btn {
+  width: auto;
+  min-width: auto;
+  height: auto;
+  padding: 0 18px;
 }
 
 .admin-table-row button:hover:not(:disabled) {
@@ -965,14 +991,17 @@ select {
 }
 
 .admin-status-pill {
-  display: inline-flex;
+  display: inline-flex !important;
   align-items: center;
   justify-content: center;
+  width: fit-content;
+  min-width: 90px;
   min-height: 32px;
   border-radius: 999px;
   padding: 0 12px;
   font-size: 12px !important;
   font-weight: 900 !important;
+  white-space: nowrap;
 }
 
 .admin-status-pill.pending {
@@ -4280,4 +4309,28 @@ select {
   .points-grid {
     grid-template-columns: 1fr;
   }
+}
+.admin-table-row strong,
+.admin-table-row span {
+  min-width: 0;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-table-row strong {
+  white-space: nowrap;
+}
+
+.admin-table-row span {
+  white-space: nowrap;
+}
+.status-active {
+  background: rgba(76, 175, 80, 0.18);
+  color: #8bd68e;
+}
+
+.status-locked {
+  background: rgba(242, 7, 18, 0.18);
+  color: #ff8f96;
 }
