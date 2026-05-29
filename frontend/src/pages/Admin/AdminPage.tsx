@@ -2,20 +2,20 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   BarChart3,
   CalendarClock,
-  CheckCircle2,
   Clapperboard,
   CreditCard,
-  Edit3,
   Plus,
   RefreshCw,
-  Trash2,
   Users,
-  XCircle,
 } from "lucide-react";
-import { Modal, notification } from "antd";
+import { notification } from "antd";
 
-import OverviewSection from "./overview/overview";
-import MoviesSection from "./movies/movies";
+import AdminOverview from "./components/AdminOverview";
+import AdminMovies from "./components/AdminMovies";
+import ShowtimesSection from "./showtimes/showtimes";
+import BookingsSection from "./bookings/bookings";
+import UsersSection from "./users/user";
+import FoodsSection from "./foods/FoodsSection";
 
 import {
   createAdminMovie,
@@ -32,14 +32,36 @@ import {
   updateAdminUserRole,
   updateAdminUserStatus,
   deleteAdminUser,
+  getAdminFoods,
+  getAdminFoodSizes,
+  createAdminFood,
+  updateAdminFood,
+  deleteAdminFood,
+  createAdminFoodSize,
+  updateAdminFoodSize,
+  deleteAdminFoodSize,
 } from "../../services/adminService";
 import type { AdminBooking, AdminUser } from "../../services/adminService";
 import { getMovies } from "../../services/movieService";
 import { getShowtimes } from "../../services/showtimeService";
-import type { ApiMovie, ApiShowtime } from "../../types/api";
-import { formatCurrency, formatDateTime } from "../../utils/format";
+import type { ApiMovie, ApiShowtime, ApiFood, ApiFoodSize } from "../../types/api";
+import { formatDateTime } from "../../utils/format";
 
-type AdminTab = "overview" | "movies" | "showtimes" | "bookings" | "users";
+type AdminTab = "overview" | "movies" | "showtimes" | "bookings" | "users" | "foods";
+
+type FoodForm = {
+  id: string;
+  category_id: string;
+  name: string;
+  description: string;
+  image_url: string;
+};
+
+type SizeForm = {
+  id: string;
+  size_name: "" | "S" | "M" | "L";
+  price: string;
+};
 
 const emptyMovieForm = {
   id: "",
@@ -63,6 +85,20 @@ const emptyShowtimeForm = {
   status: "OPEN",
 };
 
+const emptyFoodForm: FoodForm = {
+  id: "",
+  category_id: "",
+  name: "",
+  description: "",
+  image_url: "",
+};
+
+const emptySizeForm: SizeForm = {
+  id: "",
+  size_name: "",
+  price: "",
+};
+
 const AdminPage = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [stats, setStats] = useState<any>(null);
@@ -75,19 +111,25 @@ const AdminPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [movieForm, setMovieForm] = useState(emptyMovieForm);
   const [showtimeForm, setShowtimeForm] = useState(emptyShowtimeForm);
-  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [foods, setFoods] = useState<ApiFood[]>([]);
+  const [foodForm, setFoodForm] = useState<FoodForm>(emptyFoodForm);
+  const [selectedFood, setSelectedFood] = useState<ApiFood | null>(null);
+  const [foodSizes, setFoodSizes] = useState<ApiFoodSize[]>([]);
+  const [sizeForm, setSizeForm] = useState<SizeForm>(emptySizeForm);
   const [isUserModalVisible, setIsUserModalVisible] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
 
   const loadAdminData = async () => {
     setIsLoading(true);
     try {
-      const [statsData, movieData, showtimeData, bookingData, userData] =
+      const [statsData, movieData, showtimeData, bookingData, userData, foodsData] =
         await Promise.all([
           getDashboardStats(),
           getMovies({ page: 1, limit: 50 }),
           getShowtimes(),
           getAdminBookings(),
           getAdminUsers(),
+          getAdminFoods(),
         ]);
 
       setStats(statsData);
@@ -95,6 +137,7 @@ const AdminPage = () => {
       setShowtimes(showtimeData);
       setBookings(bookingData);
       setUsers(userData);
+      setFoods(foodsData);
       setMessage("");
     } catch (error: any) {
       setMessage(
@@ -110,14 +153,219 @@ const AdminPage = () => {
     loadAdminData();
   }, []);
 
+  const loadFoodSizes = async (foodId: number) => {
+    try {
+      const sizes = await getAdminFoodSizes(foodId);
+      setFoodSizes(sizes);
+    } catch (error: any) {
+      setFoodSizes([]);
+      notification.error({
+        message: "Lỗi tải sizes",
+        description: error.response?.data?.message || "Không tải được kích thước đồ ăn.",
+      });
+    }
+  };
+
+  const handleSelectFood = async (food: ApiFood) => {
+    setSelectedFood(food);
+    setFoodForm({
+      id: String(food.id),
+      category_id: String(food.category_id),
+      name: food.name || "",
+      description: food.description || "",
+      image_url: food.image_url || "",
+    });
+    setSizeForm(emptySizeForm);
+    await loadFoodSizes(food.id);
+  };
+
+  const handleSubmitFood = async (event: FormEvent) => {
+    event.preventDefault();
+
+    try {
+      const payload = {
+        name: foodForm.name,
+        description: foodForm.description || null,
+        image_url: foodForm.image_url || null,
+        category_id: Number(foodForm.category_id),
+      };
+
+      if (foodForm.id) {
+        await updateAdminFood(Number(foodForm.id), payload);
+        notification.success({
+          message: "Cập nhật đồ ăn",
+          description: "Đã cập nhật đồ ăn thành công.",
+        });
+      } else {
+        await createAdminFood(payload);
+        notification.success({
+          message: "Thêm đồ ăn",
+          description: "Đã thêm đồ ăn mới thành công.",
+        });
+      }
+
+      setFoodForm(emptyFoodForm);
+      setSelectedFood(null);
+      setFoodSizes([]);
+      await loadAdminData();
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi lưu đồ ăn",
+        description: error.response?.data?.message || "Không lưu được đồ ăn.",
+      });
+    }
+  };
+
+  const handleSubmitSize = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selectedFood) {
+      notification.warning({
+        message: "Vui lòng chọn đồ ăn",
+        description: "Chọn một món ăn trước khi thêm hoặc sửa size.",
+      });
+      return;
+    }
+
+    try {
+      const payload = {
+        size_name: sizeForm.size_name as ApiFoodSize["size_name"],
+        price: Number(sizeForm.price),
+      };
+
+      if (sizeForm.id) {
+        await updateAdminFoodSize(Number(sizeForm.id), payload);
+        notification.success({
+          message: "Cập nhật size",
+          description: "Đã cập nhật size đồ ăn thành công.",
+        });
+      } else {
+        await createAdminFoodSize(selectedFood.id, payload);
+        notification.success({
+          message: "Thêm size",
+          description: "Đã thêm size đồ ăn mới thành công.",
+        });
+      }
+
+      setSizeForm(emptySizeForm);
+      await loadFoodSizes(selectedFood.id);
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi lưu size",
+        description: error.response?.data?.message || "Không lưu được size đồ ăn.",
+      });
+    }
+  };
+
+  const handleEditFood = (food: ApiFood) => {
+    setSelectedFood(food);
+    setFoodForm({
+      id: String(food.id),
+      category_id: String(food.category_id),
+      name: food.name || "",
+      description: food.description || "",
+      image_url: food.image_url || "",
+    });
+    loadFoodSizes(food.id);
+  };
+
+  const handleEditSize = (size: ApiFoodSize) => {
+    setSizeForm({
+      id: String(size.id),
+      size_name: size.size_name,
+      price: String(size.price),
+    });
+  };
+
+  const handleClearSizeForm = () => {
+    setSizeForm(emptySizeForm);
+  };
+
+  const handleDeleteFood = async (foodId: number) => {
+    try {
+      await deleteAdminFood(foodId);
+      notification.success({
+        message: "Xóa đồ ăn",
+        description: "Đã xóa đồ ăn thành công.",
+      });
+      setSelectedFood((current) => (current?.id === foodId ? null : current));
+      await loadAdminData();
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi xóa đồ ăn",
+        description: error.response?.data?.message || "Không xóa được đồ ăn.",
+      });
+    }
+  };
+
+  const handleDeleteFoodSize = async (foodSizeId: number) => {
+    try {
+      await deleteAdminFoodSize(foodSizeId);
+      notification.success({
+        message: "Xóa size",
+        description: "Đã xóa size đồ ăn thành công.",
+      });
+      if (selectedFood) {
+        await loadFoodSizes(selectedFood.id);
+      }
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi xóa size",
+        description: error.response?.data?.message || "Không xóa được size đồ ăn.",
+      });
+    }
+  };
+
+  const handleDeleteShowtime = async (showtimeId: number) => {
+    try {
+      await deleteAdminShowtime(showtimeId);
+      notification.success({
+        message: "Xóa suất chiếu",
+        description: "Đã xóa suất chiếu thành công.",
+      });
+      await loadAdminData();
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi xóa suất chiếu",
+        description: error.response?.data?.message || "Không xóa được suất chiếu.",
+      });
+    }
+  };
+
+  const handleDeleteMovie = async (movieId: number) => {
+    try {
+      await deleteAdminMovie(movieId);
+      notification.success({
+        message: "Xóa phim",
+        description: "Đã xóa phim thành công.",
+      });
+      await loadAdminData();
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi xóa phim",
+        description: error.response?.data?.message || "Không xóa được phim.",
+      });
+    }
+  };
+
+  const handleDeleteUser = async (userId: number) => {
+    try {
+      await deleteAdminUser(userId);
+      notification.success({
+        message: "Xóa người dùng",
+        description: "Đã xóa người dùng thành công.",
+      });
+      await loadAdminData();
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi xóa người dùng",
+        description: error.response?.data?.message || "Không xóa được người dùng.",
+      });
+    }
+  };
+
   const maxMonthlyRevenue = useMemo(() => {
     const values =
       stats?.monthly_revenue?.map((item: any) => Number(item.revenue)) || [0];
-    return Math.max(...values, 1);
-  }, [stats]);
-
-  const maxWeeklyRevenue = useMemo(() => {
-    const values = stats?.last_7d_revenue?.map((item: any) => Number(item.revenue)) || [0];
     return Math.max(...values, 1);
   }, [stats]);
 
@@ -138,16 +386,25 @@ const AdminPage = () => {
 
       if (movieForm.id) {
         await updateAdminMovie(Number(movieForm.id), payload);
-        setMessage("Đã cập nhật phim.");
+        notification.success({
+          message: "Cập nhật phim",
+          description: "Đã cập nhật phim thành công.",
+        });
       } else {
         await createAdminMovie(payload);
-        setMessage("Đã thêm phim mới.");
+        notification.success({
+          message: "Thêm phim",
+          description: "Đã thêm phim mới thành công.",
+        });
       }
 
       setMovieForm(emptyMovieForm);
       await loadAdminData();
     } catch (error: any) {
-      setMessage(error.response?.data?.message || "Không lưu được phim.");
+      notification.error({
+        message: "Lỗi lưu phim",
+        description: error.response?.data?.message || "Không lưu được phim.",
+      });
     }
   };
 
@@ -164,16 +421,25 @@ const AdminPage = () => {
 
       if (showtimeForm.id) {
         await updateAdminShowtime(Number(showtimeForm.id), payload);
-        setMessage("Đã cập nhật suất chiếu.");
+        notification.success({
+          message: "Cập nhật suất chiếu",
+          description: "Đã cập nhật suất chiếu thành công.",
+        });
       } else {
         await createAdminShowtime(payload);
-        setMessage("Đã thêm suất chiếu mới.");
+        notification.success({
+          message: "Thêm suất chiếu",
+          description: "Đã thêm suất chiếu mới thành công.",
+        });
       }
 
       setShowtimeForm(emptyShowtimeForm);
       await loadAdminData();
     } catch (error: any) {
-      setMessage(error.response?.data?.message || "Không lưu được suất chiếu.");
+      notification.error({
+        message: "Lỗi lưu suất chiếu",
+        description: error.response?.data?.message || "Không lưu được suất chiếu.",
+      });
     }
   };
 
@@ -183,12 +449,19 @@ const AdminPage = () => {
   ) => {
     try {
       await updateAdminBookingStatus(bookingId, status);
-      setMessage(
-        status === "CONFIRMED" ? "Đã xác nhận đơn hàng." : "Đã cập nhật trạng thái đơn hàng."
-      );
+      notification.success({
+        message: "Cập nhật đơn hàng",
+        description:
+          status === "CONFIRMED"
+            ? "Đã xác nhận đơn hàng thành công."
+            : "Đã hủy đơn hàng thành công.",
+      });
       await loadAdminData();
     } catch (error: any) {
-      setMessage(error.response?.data?.message || "Không cập nhật được đơn hàng.");
+      notification.error({
+        message: "Lỗi cập nhật đơn hàng",
+        description: error.response?.data?.message || "Không cập nhật được đơn hàng.",
+      });
     }
   };
 
@@ -294,11 +567,6 @@ const AdminPage = () => {
     }
   };
 
-  const selectedUserStatus = String(selectedUser?.is_active ?? selectedUser?.status).toUpperCase();
-
-  const isSelectedUserActive =
-    selectedUserStatus === "ACTIVE" || selectedUserStatus === "TRUE";
-
   return (
     <section className="app-page admin-page">
 
@@ -336,6 +604,13 @@ const AdminPage = () => {
           </button>
 
           <button
+            className={activeTab === "foods" ? "active" : ""}
+            onClick={() => setActiveTab("foods")}
+          >
+            <Plus size={18} /> Đồ ăn
+          </button>
+
+          <button
             className={activeTab === "showtimes" ? "active" : ""}
             onClick={() => setActiveTab("showtimes")}
           >
@@ -356,352 +631,79 @@ const AdminPage = () => {
         </div>
 
         {activeTab === "overview" && (
-          <OverviewSection
+          <AdminOverview
             stats={stats}
             maxMonthlyRevenue={maxMonthlyRevenue}
-            maxWeeklyRevenue={maxWeeklyRevenue}
           />
         )}
 
         {activeTab === "movies" && (
-          <MoviesSection
+          <AdminMovies
             movies={movies}
             movieForm={movieForm}
             setMovieForm={setMovieForm}
             handleSubmitMovie={handleSubmitMovie}
             editMovie={editMovie}
-            deleteMovie={async (movieId) => {
-              await deleteAdminMovie(movieId);
-              await loadAdminData();
-            }}
+            loadAdminData={loadAdminData}
+            handleDeleteMovie={handleDeleteMovie}
+          />
+        )}
+
+        {activeTab === "foods" && (
+          <FoodsSection
+            foods={foods}
+            foodForm={foodForm}
+            setFoodForm={setFoodForm}
+            selectedFood={selectedFood}
+            foodSizes={foodSizes}
+            sizeForm={sizeForm}
+            setSizeForm={setSizeForm}
+            handleSubmitFood={handleSubmitFood}
+            handleSubmitSize={handleSubmitSize}
+            handleSelectFood={handleSelectFood}
+            handleEditFood={handleEditFood}
+            handleEditSize={handleEditSize}
+            handleDeleteFood={handleDeleteFood}
+            handleDeleteFoodSize={handleDeleteFoodSize}
+            handleClearSizeForm={handleClearSizeForm}
           />
         )}
 
         {activeTab === "showtimes" && (
-          <div className="admin-workspace">
-            <form className="form-panel admin-form" onSubmit={handleSubmitShowtime}>
-              <h2>{showtimeForm.id ? "Sửa suất chiếu" : "Thêm suất chiếu"}</h2>
-
-              <select
-                required
-                value={showtimeForm.movie_id}
-                onChange={(e) =>
-                  setShowtimeForm({ ...showtimeForm, movie_id: e.target.value })
-                }
-              >
-                <option value="">Chọn phim</option>
-                {movies.map((movie) => (
-                  <option value={movie.id} key={movie.id}>
-                    {movie.title}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                required
-                type="number"
-                min="1"
-                placeholder="Room ID"
-                value={showtimeForm.room_id}
-                onChange={(e) =>
-                  setShowtimeForm({ ...showtimeForm, room_id: e.target.value })
-                }
-              />
-
-              <input
-                required
-                type="datetime-local"
-                value={showtimeForm.start_time}
-                onChange={(e) =>
-                  setShowtimeForm({ ...showtimeForm, start_time: e.target.value })
-                }
-              />
-
-              <input
-                required
-                type="datetime-local"
-                value={showtimeForm.end_time}
-                onChange={(e) =>
-                  setShowtimeForm({ ...showtimeForm, end_time: e.target.value })
-                }
-              />
-
-              <select
-                value={showtimeForm.status}
-                onChange={(e) =>
-                  setShowtimeForm({ ...showtimeForm, status: e.target.value })
-                }
-              >
-                <option value="OPEN">Mở bán</option>
-                <option value="FULL">Đã đầy</option>
-                <option value="CANCELLED">Đã hủy</option>
-              </select>
-
-              <button className="primary-btn form-submit">
-                <Plus size={18} />
-                Lưu suất chiếu
-              </button>
-            </form>
-
-            <div className="data-card admin-table-card">
-              <h2>Danh sách suất chiếu</h2>
-
-              <div className="admin-table">
-                {showtimes.map((showtime) => (
-                  <div className="admin-table-row showtime-admin-row" key={showtime.id}>
-                    <strong>{showtime.movie_title}</strong>
-                    <span>
-                      {showtime.cinema_name} - {showtime.room_name}
-                    </span>
-                    <span>{formatDateTime(showtime.start_time)}</span>
-                    <span>{showtime.status}</span>
-
-                    <button title="Sửa suất chiếu" onClick={() => editShowtime(showtime)}>
-                      <Edit3 size={16} />
-                    </button>
-
-                    <button
-                      title="Xóa suất chiếu"
-                      onClick={async () => {
-                        await deleteAdminShowtime(showtime.id);
-                        await loadAdminData();
-                      }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <ShowtimesSection
+            showtimes={showtimes}
+            movies={movies}
+            showtimeForm={showtimeForm}
+            setShowtimeForm={setShowtimeForm}
+            handleSubmitShowtime={handleSubmitShowtime}
+            editShowtime={editShowtime}
+            deleteShowtime={handleDeleteShowtime}
+            formatDateTime={formatDateTime}
+          />
         )}
 
         {activeTab === "bookings" && (
-          <div className="data-card admin-table-card">
-            <h2>Xác nhận đơn hàng</h2>
-
-            <div className="admin-table">
-              {bookings.map((booking) => (
-                <div className="admin-table-row booking-admin-row" key={booking.id}>
-                  <strong>{booking.booking_code}</strong>
-                  <span>
-                    {booking.customer_name || booking.customer_email || "Khách hàng"}
-                  </span>
-                  <span>{booking.movie_title}</span>
-                  <span>{formatDateTime(booking.start_time)}</span>
-                  <span>{formatCurrency(booking.total_amount)}</span>
-
-                  <span
-                    className={`admin-status-pill ${booking.booking_status.toLowerCase()}`}
-                  >
-                    {booking.booking_status}
-                  </span>
-
-                  <button
-                    title="Xác nhận đơn"
-                    disabled={booking.booking_status === "CONFIRMED"}
-                    onClick={() => handleBookingStatus(booking.id, "CONFIRMED")}
-                  >
-                    <CheckCircle2 size={16} />
-                  </button>
-
-                  <button
-                    title="Hủy đơn"
-                    disabled={booking.booking_status === "CANCELLED"}
-                    onClick={() => handleBookingStatus(booking.id, "CANCELLED")}
-                  >
-                    <XCircle size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          <BookingsSection
+            bookings={bookings}
+            handleBookingStatus={handleBookingStatus}
+          />
         )}
 
         {activeTab === "users" && (
-          <div className="admin-users-section">
-            <div className="data-card">
-              <div className="section-header">
-                <h2>Quản lý người dùng</h2>
-
-                <div className="filters-group">
-                  <input
-                    type="text"
-                    placeholder="Tìm tên, email..."
-                    value={userFilters.search}
-                    onChange={(e) =>
-                      handleUserFilterChange({ search: e.target.value })
-                    }
-                    className="admin-filter-input"
-                  />
-
-                  <select
-                    value={userFilters.role}
-                    onChange={(e) => handleUserFilterChange({ role: e.target.value })}
-                    className="admin-filter-select"
-                  >
-                    <option value="">Tất cả vai trò</option>
-                    <option value="CUSTOMER">Customer</option>
-                    <option value="ADMIN">Admin</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="table-responsive">
-                <table className="admin-table users-table">
-                  <colgroup>
-                    <col style={{ width: "70px" }} />
-                    <col style={{ width: "220px" }} />
-                    <col style={{ width: "300px" }} />
-                    <col style={{ width: "190px" }} />
-                    <col style={{ width: "200px" }} />
-                    <col style={{ width: "170px" }} />
-                    <col style={{ width: "260px" }} />
-                  </colgroup>
-
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Họ tên</th>
-                      <th>Email</th>
-                      <th>Số điện thoại</th>
-                      <th>Vai trò</th>
-                      <th>Trạng thái</th>
-                      <th>Hành động</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {users.length > 0 ? (
-                      users.map((user) => (
-                        <tr key={user.id}>
-                          <td>{user.id}</td>
-                          <td title={user.full_name}>{user.full_name}</td>
-                          <td title={user.email}>{user.email}</td>
-                          <td title={user.phone || ""}>{user.phone || "-"}</td>
-
-                          <td>
-                            <select
-                              value={user.roles}
-                              onChange={(e) => handleUserRoleChange(user.id, e.target.value)}
-                              className="role-select"
-                              disabled={user.is_active === "BLOCKED"}
-                            >
-                              <option value="CUSTOMER">CUSTOMER</option>
-                              <option value="ADMIN">ADMIN</option>
-                            </select>
-                          </td>
-
-                          <td>
-                             <button
-  type="button"
-  className={`admin-status-pill ${
-    user.is_active === "ACTIVE" ? "confirmed" : "cancelled"
-  }`}
-  onClick={() =>
-    handleUserStatusChange(
-      user.id,
-      user.is_active === "ACTIVE" ? "BLOCKED" : "ACTIVE"
-    )
-  }
->
-  {user.is_active === "ACTIVE" ? "Hoạt động" : "Bị khóa"}
-</button>
-                          </td>
-
-                          <td>
-                            <div className="user-actions">
-                              <button
-  type="button"
-  className="secondary-btn compact"
-  onClick={() => handleViewUserDetail(user.id)}
->
-  Chi tiết
-</button>
-
-                              {user.roles !== "ADMIN" && user.is_active === "BLOCKED" && (
-                                <button
-                                  className="secondary-btn compact danger-btn"
-                                  onClick={async () => {
-                                    if (window.confirm("Bạn có chắc chắn muốn xóa tài khoản này?")) {
-                                      try {
-                                        await deleteAdminUser(user.id);
-                                        notification.success({ message: "Xóa tài khoản thành công" });
-                                        await loadAdminData();
-                                      } catch (e: any) {
-                                        notification.error({
-                                          message: "Lỗi khi xóa",
-                                          description: e.response?.data?.message || "Không thể xóa tài khoản.",
-                                        });
-                                      }
-                                    }
-                                  }}
-                                >
-                                  Xóa
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={7} className="text-center">
-                          Không tìm thấy người dùng nào.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+          <UsersSection
+            users={users}
+            userFilters={userFilters}
+            onUserFilterChange={handleUserFilterChange}
+            onUserRoleChange={handleUserRoleChange}
+            onUserStatusChange={handleUserStatusChange}
+            onViewUserDetail={handleViewUserDetail}
+            onDeleteUser={handleDeleteUser}
+            selectedUser={selectedUser}
+            isUserModalVisible={isUserModalVisible}
+            setIsUserModalVisible={setIsUserModalVisible}
+          />
         )}
       </div>
-
-      <Modal
-        title="Chi tiết người dùng"
-        open={isUserModalVisible}
-        onCancel={() => {
-          setIsUserModalVisible(false);
-          setSelectedUser(null);
-        }}
-        footer={null}
-      >
-        <div style={{ display: "grid", gap: "12px", padding: "10px 0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Họ tên:</strong>
-            <span>{selectedUser?.full_name}</span>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Email:</strong>
-            <span>{selectedUser?.email}</span>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Số điện thoại:</strong>
-            <span>{selectedUser?.phone || "-"}</span>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Vai trò:</strong>
-            <span>{selectedUser?.roles}</span>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <strong>Trạng thái:</strong>
-            <span
-              style={{
-                color: isSelectedUserActive ? "#52c41a" : "#ff4d4f",
-                fontWeight: "bold",
-              }}
-            >
-              {isSelectedUserActive ? "Hoạt động" : "Bị khóa"}
-            </span>
-          </div>
-        </div>
-      </Modal>
     </section>
   );
 };

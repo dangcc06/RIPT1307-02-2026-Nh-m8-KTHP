@@ -65,6 +65,74 @@ export const deleteAdminShowtime = async (id: number) => {
   return response.data;
 };
 
+export const getAdminFoods = async () => {
+  const response = await apiClient.get<ApiResponse<ApiFood[]>>(`/admin/foods`);
+  return response.data.data;
+};
+
+export const getAdminFoodSizes = async (foodId?: number) => {
+  const response = await apiClient.get<ApiResponse<ApiFoodSize[]>>(`/foods/sizes`, {
+    params: foodId ? { food_id: foodId } : undefined,
+  });
+  return response.data.data;
+};
+
+export const createAdminFood = async (payload: {
+  name: string;
+  description?: string | null;
+  image_url?: string | null;
+  category_id: number;
+}) => {
+  const response = await apiClient.post<ApiResponse<ApiFood>>(`/admin/foods`, payload);
+  return response.data.data;
+};
+
+export const updateAdminFood = async (
+  id: number,
+  payload: {
+    name: string;
+    description?: string | null;
+    image_url?: string | null;
+    category_id: number;
+  }
+) => {
+  const response = await apiClient.put<ApiResponse<ApiFood>>(`/admin/foods/${id}`, payload);
+  return response.data.data;
+};
+
+export const deleteAdminFood = async (id: number) => {
+  const response = await apiClient.delete<ApiResponse<{ foodId: number; deleted: boolean }>>(
+    `/admin/foods/${id}`
+  );
+  return response.data.data;
+};
+
+export const createAdminFoodSize = async (foodId: number, payload: {
+  size_name: "S" | "M" | "L";
+  price: number;
+}) => {
+  const response = await apiClient.post<ApiResponse<ApiFoodSize>>(
+    `/admin/foods/${foodId}/sizes`,
+    payload
+  );
+  return response.data.data;
+};
+
+export const updateAdminFoodSize = async (
+  id: number,
+  payload: { size_name: "S" | "M" | "L"; price: number }
+) => {
+  const response = await apiClient.put<ApiResponse<ApiFoodSize>>(`/admin/food-sizes/${id}`, payload);
+  return response.data.data;
+};
+
+export const deleteAdminFoodSize = async (id: number) => {
+  const response = await apiClient.delete<ApiResponse<{ sizeId: number; deleted: boolean }>>(
+    `/admin/food-sizes/${id}`
+  );
+  return response.data.data;
+};
+
 export type AdminUser = {
   id: number;
   full_name: string;

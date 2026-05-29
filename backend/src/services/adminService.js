@@ -273,6 +273,139 @@ const getUserDetail = async (userId) => {
   return userRows[0];
 };
 
+const getAdminFoods = async () => {
+  const [rows] = await pool.execute(
+    `
+    SELECT f.id, f.category_id, fc.name AS category_name, f.name, f.description, f.image_url
+    FROM foods f
+    LEFT JOIN food_categories fc ON fc.id = f.category_id
+    ORDER BY fc.name ASC, f.name ASC
+    `
+  );
+
+  return rows;
+};
+
+const createAdminFood = async ({ name, description, image_url, category_id }) => {
+  if (!name || !category_id) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Name and category are required", 400);
+  }
+
+  const [result] = await pool.execute(
+    "INSERT INTO foods (category_id, name, description, image_url) VALUES (?, ?, ?, ?)",
+    [category_id, name, description || null, image_url || null]
+  );
+
+  const [rows] = await pool.execute(
+    `
+    SELECT f.id, f.category_id, fc.name AS category_name, f.name, f.description, f.image_url
+    FROM foods f
+    LEFT JOIN food_categories fc ON fc.id = f.category_id
+    WHERE f.id = ?
+    LIMIT 1
+    `,
+    [result.insertId]
+  );
+
+  return rows[0];
+};
+
+const updateAdminFood = async (foodId, { name, description, image_url, category_id }) => {
+  if (!name || !category_id) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Name and category are required", 400);
+  }
+
+  await pool.execute(
+    "UPDATE foods SET category_id = ?, name = ?, description = ?, image_url = ? WHERE id = ?",
+    [category_id, name, description || null, image_url || null, foodId]
+  );
+
+  const [rows] = await pool.execute(
+    `
+    SELECT f.id, f.category_id, fc.name AS category_name, f.name, f.description, f.image_url
+    FROM foods f
+    LEFT JOIN food_categories fc ON fc.id = f.category_id
+    WHERE f.id = ?
+    LIMIT 1
+    `,
+    [foodId]
+  );
+
+  return rows[0];
+};
+
+const deleteAdminFood = async (foodId) => {
+  await pool.execute("DELETE FROM foods WHERE id = ?", [foodId]);
+  return { foodId, deleted: true };
+};
+
+const createAdminFoodSize = async ({ food_id, size_name, price }) => {
+  const allowedSizes = ["S", "M", "L"];
+  if (!food_id || !size_name || !price) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Food, size and price are required", 400);
+  }
+  if (!allowedSizes.includes(size_name)) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Size must be one of S, M, L", 400);
+  }
+
+  const [result] = await pool.execute(
+    "INSERT INTO food_sizes (food_id, size_name, price) VALUES (?, ?, ?)",
+    [food_id, size_name, price]
+  );
+
+  const [rows] = await pool.execute(
+    `
+    SELECT fs.id, fs.food_id, f.name AS food_name, fs.size_name, fs.price
+    FROM food_sizes fs
+    JOIN foods f ON f.id = fs.food_id
+    WHERE fs.id = ?
+    LIMIT 1
+    `,
+    [result.insertId]
+  );
+
+  return rows[0];
+};
+
+const updateAdminFoodSize = async (sizeId, { size_name, price }) => {
+  const allowedSizes = ["S", "M", "L"];
+  if (!size_name || !price) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Size and price are required", 400);
+  }
+  if (!allowedSizes.includes(size_name)) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Size must be one of S, M, L", 400);
+  }
+
+  await pool.execute(
+    "UPDATE food_sizes SET size_name = ?, price = ? WHERE id = ?",
+    [size_name, price, sizeId]
+  );
+
+  const [rows] = await pool.execute(
+    `
+    SELECT fs.id, fs.food_id, f.name AS food_name, fs.size_name, fs.price
+    FROM food_sizes fs
+    JOIN foods f ON f.id = fs.food_id
+    WHERE fs.id = ?
+    LIMIT 1
+    `,
+    [sizeId]
+  );
+
+  return rows[0];
+};
+
+const deleteAdminFoodSize = async (sizeId) => {
+  await pool.execute("DELETE FROM food_sizes WHERE id = ?", [sizeId]);
+  return { sizeId, deleted: true };
+};
+
 module.exports = {
   getDashboardStatistics,
   getAdminBookings,
@@ -282,4 +415,11 @@ module.exports = {
   updateUserStatus,
   deleteUser,
   getUserDetail,
+  getAdminFoods,
+  createAdminFood,
+  updateAdminFood,
+  deleteAdminFood,
+  createAdminFoodSize,
+  updateAdminFoodSize,
+  deleteAdminFoodSize,
 };

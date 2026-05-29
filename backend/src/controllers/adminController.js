@@ -49,6 +49,60 @@ const getUserDetail = asyncHandler(async (req, res) => {
   return successResponse(res, "Get user detail successfully", user);
 });
 
+const getAdminFoods = asyncHandler(async (req, res) => {
+  const foods = await adminService.getAdminFoods();
+  return successResponse(res, "Get foods successfully", foods);
+});
+
+const createAdminFood = asyncHandler(async (req, res) => {
+  const { name, description, image_url, category_id } = req.body;
+  const food = await adminService.createAdminFood({
+    name,
+    description,
+    image_url,
+    category_id,
+  });
+  return successResponse(res, "Create food successfully", food);
+});
+
+const updateAdminFood = asyncHandler(async (req, res) => {
+  const { name, description, image_url, category_id } = req.body;
+  const food = await adminService.updateAdminFood(req.params.id, {
+    name,
+    description,
+    image_url,
+    category_id,
+  });
+  return successResponse(res, "Update food successfully", food);
+});
+
+const deleteAdminFood = asyncHandler(async (req, res) => {
+  const result = await adminService.deleteAdminFood(req.params.id);
+  return successResponse(res, "Delete food successfully", result);
+});
+
+const createAdminFoodSize = asyncHandler(async (req, res) => {
+  const size = await adminService.createAdminFoodSize({
+    food_id: req.params.id,
+    size_name: req.body.size_name,
+    price: req.body.price,
+  });
+  return successResponse(res, "Create food size successfully", size);
+});
+
+const updateAdminFoodSize = asyncHandler(async (req, res) => {
+  const size = await adminService.updateAdminFoodSize(req.params.id, {
+    size_name: req.body.size_name,
+    price: req.body.price,
+  });
+  return successResponse(res, "Update food size successfully", size);
+});
+
+const deleteAdminFoodSize = asyncHandler(async (req, res) => {
+  const result = await adminService.deleteAdminFoodSize(req.params.id);
+  return successResponse(res, "Delete food size successfully", result);
+});
+
 module.exports = {
   getDashboardStatistics,
   getAdminBookings,
@@ -58,4 +112,11 @@ module.exports = {
   updateUserStatus,
   deleteUser,
   getUserDetail,
+  getAdminFoods,
+  createAdminFood,
+  updateAdminFood,
+  deleteAdminFood,
+  createAdminFoodSize,
+  updateAdminFoodSize,
+  deleteAdminFoodSize,
 };

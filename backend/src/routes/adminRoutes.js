@@ -31,4 +31,12 @@ router.post("/showtimes", showtimeController.createShowtime);
 router.put("/showtimes/:id", showtimeController.updateShowtime);
 router.delete("/showtimes/:id", roleMiddleware("ADMIN"), showtimeController.deleteShowtime);
 
+router.get("/foods", adminController.getAdminFoods);
+router.post("/foods", roleMiddleware("ADMIN"), adminController.createAdminFood);
+router.put("/foods/:id", roleMiddleware("ADMIN"), adminController.updateAdminFood);
+router.delete("/foods/:id", roleMiddleware("ADMIN"), adminController.deleteAdminFood);
+router.post("/foods/:id/sizes", roleMiddleware("ADMIN"), adminController.createAdminFoodSize);
+router.put("/food-sizes/:id", roleMiddleware("ADMIN"), adminController.updateAdminFoodSize);
+router.delete("/food-sizes/:id", roleMiddleware("ADMIN"), adminController.deleteAdminFoodSize);
+
 module.exports = router;
