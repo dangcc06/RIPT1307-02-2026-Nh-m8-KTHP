@@ -14,6 +14,9 @@ router.get("/dashboard", adminController.getDashboardStatistics);
 router.get("/bookings", adminController.getAdminBookings);
 router.patch("/bookings/:id/status", adminController.updateBookingStatus);
 
+router.get("/export/bookings", adminController.exportBookings);
+router.get("/export/revenue", adminController.exportRevenue);
+
 router.get("/users", adminController.getUsers);
 router.get("/users/:id", adminController.getUserDetail);
 router.patch("/users/:id/role", adminController.updateUserRole);

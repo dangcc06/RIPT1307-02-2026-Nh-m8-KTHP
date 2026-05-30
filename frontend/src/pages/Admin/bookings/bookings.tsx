@@ -1,7 +1,10 @@
 import React from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
+import { notification } from "antd";
 import type { AdminBooking } from "../../../services/adminService";
+import { exportAdminBookings } from "../../../services/adminService";
 import { formatCurrency, formatDateTime } from "../../../utils/format";
+import { downloadBlob } from "../../../utils/downloadBlob";
 
 type BookingFilters = {
   search: string;
@@ -113,8 +116,37 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
           gap: 12,
         }}
       >
-        <h2>Xác nhận đơn hàng</h2>
-        <span>Tổng đơn: {total}</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <h2>Xác nhận đơn hàng</h2>
+          <span>Tổng đơn: {total}</span>
+        </div>
+
+        <button
+          type="button"
+          className="secondary-btn compact"
+          onClick={async () => {
+            try {
+              const blob = await exportAdminBookings({
+                status: filters.status,
+                date_from: filters.date_from || undefined,
+                date_to: filters.date_to || undefined,
+              });
+
+              const today = new Date();
+              const dateStr = `${today.getFullYear()}-${String(
+                today.getMonth() + 1
+              ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+              downloadBlob(blob, `bookings_${dateStr}.csv`);
+            } catch (error: any) {
+              notification.error({
+                message: "Lỗi xuất CSV đơn hàng",
+                description: error.response?.data?.message || "Không thể xuất file CSV.",
+              });
+            }
+          }}
+        >
+          Xuất CSV
+        </button>
       </div>
 
       <div

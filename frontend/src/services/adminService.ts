@@ -195,3 +195,23 @@ export const getAdminUserDetail = async (id: number) => {
   const response = await apiClient.get<ApiResponse<AdminUser>>( `/admin/users/${id}`);
   return response.data.data;
 };
+
+export const exportAdminBookings = async (params?: {
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+}) => {
+  const response = await apiClient.get<Blob>("/admin/export/bookings", {
+    params,
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+export const exportAdminRevenue = async (year?: number) => {
+  const response = await apiClient.get<Blob>("/admin/export/revenue", {
+    params: year ? { year } : undefined,
+    responseType: "blob",
+  });
+  return response.data;
+};

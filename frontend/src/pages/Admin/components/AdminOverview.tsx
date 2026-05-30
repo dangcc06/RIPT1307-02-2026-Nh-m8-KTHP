@@ -1,5 +1,8 @@
 import React from "react";
+import { notification } from "antd";
 import { formatCurrency } from "../../../utils/format";
+import { downloadBlob } from "../../../utils/downloadBlob";
+import { exportAdminRevenue } from "../../../services/adminService";
 
 interface AdminOverviewProps {
   stats: any;
@@ -7,6 +10,20 @@ interface AdminOverviewProps {
 }
 
 const AdminOverview: React.FC<AdminOverviewProps> = ({ stats, maxMonthlyRevenue }) => {
+  const handleExportRevenue = async () => {
+    try {
+      const year = new Date().getFullYear();
+      const blob = await exportAdminRevenue(year);
+      const filename = `revenue_${year}.csv`;
+      downloadBlob(blob, filename);
+    } catch (error: any) {
+      notification.error({
+        message: "Lỗi xuất báo cáo doanh thu",
+        description: error.response?.data?.message || "Không thể xuất file CSV.",
+      });
+    }
+  };
+
   return (
     <>
       <div className="stats-grid admin-stats">
@@ -34,7 +51,16 @@ const AdminOverview: React.FC<AdminOverviewProps> = ({ stats, maxMonthlyRevenue 
 
       <div className="admin-dashboard-grid">
         <div className="data-card admin-chart-card">
-          <h2>Doanh thu theo tháng</h2>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2>Doanh thu theo tháng</h2>
+            <button
+              type="button"
+              className="secondary-btn compact"
+              onClick={handleExportRevenue}
+            >
+              Xuất báo cáo doanh thu
+            </button>
+          </div>
           <div className="revenue-chart">
             {(stats?.monthly_revenue || []).map((item: any) => (
               <div className="revenue-bar-item" key={item.month}>

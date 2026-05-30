@@ -473,6 +473,140 @@ const deleteAdminFoodSize = async (sizeId) => {
   return { sizeId, deleted: true };
 };
 
+const exportBookings = async (filters = {}) => {
+  const { status, date_from, date_to } = filters;
+
+  let whereSql = "WHERE 1=1";
+  const params = [];
+
+  if (status && status !== "ALL") {
+    whereSql += " AND b.booking_status = ?";
+    params.push(status);
+  }
+
+  if (date_from) {
+    whereSql += " AND DATE(s.start_time) >= ?";
+    params.push(date_from);
+  }
+
+  if (date_to) {
+    whereSql += " AND DATE(s.start_time) <= ?";
+    params.push(date_to);
+  }
+
+  const sql = `
+    SELECT
+      b.booking_code,
+      u.full_name AS customer_name,
+      u.email AS customer_email,
+      m.title AS movie_title,
+      s.start_time,
+      b.total_amount,
+      b.booking_status,
+      COALESCE(p.payment_status, 'PENDING') AS payment_status,
+      COALESCE(p.payment_method, 'CASH') AS payment_method
+    FROM bookings b
+    JOIN showtimes s ON s.id = b.showtime_id
+    JOIN movies m ON m.id = s.movie_id
+    LEFT JOIN users u ON u.id = b.user_id
+    LEFT JOIN payments p ON p.id = (
+      SELECT id FROM payments WHERE booking_id = b.id ORDER BY id DESC LIMIT 1
+    )
+    ${whereSql}
+    ORDER BY b.id DESC
+  `;
+
+  try {
+    const [rows] = await pool.execute(sql, params);
+
+    // Transform data for CSV (fields required by Admin export spec)
+    const fields = [
+      "booking_code",
+      "customer_name",
+      "customer_email",
+      "movie_title",
+      "start_time",
+      "total_amount",
+      "booking_status",
+      "payment_method",
+      "payment_status",
+    ];
+
+    const csvData = rows.map((row) => ({
+      booking_code: row.booking_code,
+      customer_name: row.customer_name || "N/A",
+      customer_email: row.customer_email || "N/A",
+      movie_title: row.movie_title,
+      start_time: row.start_time ? new Date(row.start_time).toISOString() : "",
+      total_amount: row.total_amount,
+      booking_status: row.booking_status,
+      payment_method: row.payment_method,
+      payment_status: row.payment_status,
+    }));
+
+    const { parse } = require("json2csv");
+    const csv = parse(csvData, { fields });
+    return csv;
+  } catch (error) {
+    const AppError = require("../utils/AppError");
+    throw new AppError(`Error exporting bookings: ${error.message}`, 500);
+  }
+};
+
+const exportRevenue = async (year) => {
+  const parsedYear = parseInt(year, 10);
+  if (isNaN(parsedYear)) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Invalid year", 400);
+  }
+
+  const sql = `
+    SELECT 
+      DATE_FORMAT(s.start_time, '%m') AS month_num,
+      DATE_FORMAT(s.start_time, '%Y-%m') AS month,
+      DATE_FORMAT(s.start_time, 'Tháng %m, %Y') AS month_display,
+      COALESCE(SUM(p.amount), 0) AS revenue
+    FROM payments p
+    JOIN bookings b ON b.id = p.booking_id
+    JOIN showtimes s ON s.id = b.showtime_id
+    WHERE YEAR(s.start_time) = ? AND p.payment_status = 'SUCCESS'
+    GROUP BY DATE_FORMAT(s.start_time, '%Y-%m')
+    ORDER BY month ASC
+  `;
+
+  try {
+    const [rows] = await pool.execute(sql, [parsedYear]);
+
+    // Fill in missing months with 0 revenue
+    const monthsMap = new Map();
+    for (let i = 1; i <= 12; i++) {
+      const monthStr = String(i).padStart(2, "0");
+      const monthDisplay = `Tháng ${i}, ${parsedYear}`;
+      monthsMap.set(monthStr, { month: monthDisplay, revenue: 0 });
+    }
+
+    rows.forEach((row) => {
+      const monthNum = row.month_num;
+      monthsMap.set(monthNum, {
+        month: row.month_display,
+        revenue: row.revenue,
+      });
+    });
+
+    const csvData = Array.from(monthsMap.values()).map((item) => ({
+      month: item.month,
+      revenue: item.revenue,
+    }));
+
+    const { parse } = require("json2csv");
+    const csv = parse(csvData, { fields: ["month", "revenue"] });
+    return csv;
+  } catch (error) {
+    const AppError = require("../utils/AppError");
+    throw new AppError(`Error exporting revenue: ${error.message}`, 500);
+  }
+};
+
 module.exports = {
   getDashboardStatistics,
   getAdminBookings,
@@ -489,4 +623,6 @@ module.exports = {
   createAdminFoodSize,
   updateAdminFoodSize,
   deleteAdminFoodSize,
+  exportBookings,
+  exportRevenue,
 };

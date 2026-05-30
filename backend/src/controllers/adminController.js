@@ -111,6 +111,33 @@ const deleteAdminFoodSize = asyncHandler(async (req, res) => {
   return successResponse(res, "Delete food size successfully", result);
 });
 
+const exportBookings = asyncHandler(async (req, res) => {
+  const { status, date_from, date_to } = req.query;
+  const data = await adminService.exportBookings({
+    status,
+    date_from,
+    date_to,
+  });
+
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
+    today.getDate()
+  ).padStart(2, "0")}`;
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="bookings_${dateStr}.csv"`);
+  res.send(data);
+});
+
+const exportRevenue = asyncHandler(async (req, res) => {
+  const { year } = req.query;
+  const data = await adminService.exportRevenue(year || new Date().getFullYear());
+
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="revenue_${year || new Date().getFullYear()}.csv"`);
+  res.send(data);
+});
+
 module.exports = {
   getDashboardStatistics,
   getAdminBookings,
@@ -127,4 +154,6 @@ module.exports = {
   createAdminFoodSize,
   updateAdminFoodSize,
   deleteAdminFoodSize,
+  exportBookings,
+  exportRevenue,
 };
