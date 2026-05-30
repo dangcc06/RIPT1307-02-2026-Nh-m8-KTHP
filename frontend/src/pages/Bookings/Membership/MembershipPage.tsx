@@ -10,13 +10,13 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
-import { getMyMembership, getAllTiers, getTierHistory } from "../../services/membershipService";
-import { formatCurrency, formatDateTime } from "../../utils/format";
+import { getMyMembership, getAllTiers, getTierHistory } from "../../../services/membershipService";
+import { formatCurrency, formatDateTime } from "../../../utils/format";
 import type {
   ApiMembershipInfo,
   ApiMembershipTier,
   ApiTierHistory,
-} from "../../types/api";
+} from "../../../types/api";
 
 const tierIcons: Record<string, React.ReactNode> = {
   "Thành viên": <Star size={22} />,

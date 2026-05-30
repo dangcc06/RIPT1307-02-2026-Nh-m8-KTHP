@@ -20,8 +20,24 @@ export const getDashboardStats = async () => {
   return response.data.data;
 };
 
-export const getAdminBookings = async () => {
-  const response = await apiClient.get<ApiResponse<AdminBooking[]>>("/admin/bookings");
+export const getAdminBookings = async (params?: {
+  search?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const response = await apiClient.get<
+    ApiResponse<{
+      items: AdminBooking[];
+      total: number;
+      page: number;
+      limit: number;
+    }>
+  >("/admin/bookings", {
+    params,
+  });
   return response.data.data;
 };
 

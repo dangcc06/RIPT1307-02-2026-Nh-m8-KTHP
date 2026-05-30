@@ -105,6 +105,22 @@ const AdminPage = () => {
   const [movies, setMovies] = useState<ApiMovie[]>([]);
   const [showtimes, setShowtimes] = useState<ApiShowtime[]>([]);
   const [bookings, setBookings] = useState<AdminBooking[]>([]);
+  const [bookingTotal, setBookingTotal] = useState(0);
+  const [bookingFilters, setBookingFilters] = useState<{
+    search: string;
+    status: "ALL" | "PENDING" | "CONFIRMED" | "CANCELLED";
+    date_from: string;
+    date_to: string;
+    page: number;
+    limit: number;
+  }>({
+    search: "",
+    status: "ALL",
+    date_from: "",
+    date_to: "",
+    page: 1,
+    limit: 20,
+  });
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [userFilters, setUserFilters] = useState({ role: "", search: "" });
   const [message, setMessage] = useState("");
@@ -119,15 +135,40 @@ const AdminPage = () => {
   const [isUserModalVisible, setIsUserModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
 
+ const loadBookings = async (filters = bookingFilters) => {
+  const bookingData = await getAdminBookings(filters);
+
+  const items = Array.isArray(bookingData)
+    ? bookingData
+    : bookingData?.items ?? [];
+
+  setBookings(items);
+  setBookingTotal(
+    Array.isArray(bookingData)
+      ? items.length
+      : bookingData?.total ?? items.length
+  );
+
+  setBookingFilters((current) => ({
+    ...current,
+    ...filters,
+    page: Array.isArray(bookingData)
+      ? filters.page
+      : bookingData?.page ?? filters.page,
+    limit: Array.isArray(bookingData)
+      ? filters.limit
+      : bookingData?.limit ?? filters.limit,
+  }));
+};
+
   const loadAdminData = async () => {
     setIsLoading(true);
     try {
-      const [statsData, movieData, showtimeData, bookingData, userData, foodsData] =
+      const [statsData, movieData, showtimeData, userData, foodsData] =
         await Promise.all([
           getDashboardStats(),
           getMovies({ page: 1, limit: 50 }),
           getShowtimes(),
-          getAdminBookings(),
           getAdminUsers(),
           getAdminFoods(),
         ]);
@@ -135,9 +176,10 @@ const AdminPage = () => {
       setStats(statsData);
       setMovies(movieData.items);
       setShowtimes(showtimeData);
-      setBookings(bookingData);
       setUsers(userData);
       setFoods(foodsData);
+
+      await loadBookings();
       setMessage("");
     } catch (error: any) {
       setMessage(
@@ -456,7 +498,7 @@ const AdminPage = () => {
             ? "Đã xác nhận đơn hàng thành công."
             : "Đã hủy đơn hàng thành công.",
       });
-      await loadAdminData();
+      await loadBookings();
     } catch (error: any) {
       notification.error({
         message: "Lỗi cập nhật đơn hàng",
@@ -683,10 +725,21 @@ const AdminPage = () => {
         )}
 
         {activeTab === "bookings" && (
-          <BookingsSection
-            bookings={bookings}
-            handleBookingStatus={handleBookingStatus}
-          />
+        <BookingsSection
+          bookings={bookings}
+          total={bookingTotal}
+          filters={bookingFilters}
+         onBookingFilterChange={async (updates) => {
+        const nextFilters = {
+          ...bookingFilters,
+           ...updates,
+    };
+
+    setBookingFilters(nextFilters);
+    await loadBookings(nextFilters);
+  }}
+  handleBookingStatus={handleBookingStatus}
+/>
         )}
 
         {activeTab === "users" && (

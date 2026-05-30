@@ -8,7 +8,15 @@ const getDashboardStatistics = asyncHandler(async (req, res) => {
 });
 
 const getAdminBookings = asyncHandler(async (req, res) => {
-  const bookings = await adminService.getAdminBookings();
+  const { search, status, date_from, date_to, page, limit } = req.query;
+  const bookings = await adminService.getAdminBookings({
+    search,
+    status,
+    date_from,
+    date_to,
+    page,
+    limit,
+  });
   return successResponse(res, "Get admin bookings successfully", bookings);
 });
 

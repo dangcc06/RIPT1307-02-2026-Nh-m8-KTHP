@@ -3,8 +3,20 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import type { AdminBooking } from "../../../services/adminService";
 import { formatCurrency, formatDateTime } from "../../../utils/format";
 
+type BookingFilters = {
+  search: string;
+  status: "ALL" | "PENDING" | "CONFIRMED" | "CANCELLED";
+  date_from: string;
+  date_to: string;
+  page: number;
+  limit: number;
+};
+
 type BookingsSectionProps = {
   bookings: AdminBooking[];
+  total: number;
+  filters: BookingFilters;
+  onBookingFilterChange: (updates: Partial<BookingFilters>) => void;
   handleBookingStatus: (
     bookingId: number,
     status: AdminBooking["booking_status"]
@@ -20,8 +32,13 @@ const cellStyle: React.CSSProperties = {
 
 const BookingsSection: React.FC<BookingsSectionProps> = ({
   bookings,
+  total,
+  filters,
+  onBookingFilterChange,
   handleBookingStatus,
 }) => {
+  const totalPages = Math.max(1, Math.ceil(total / filters.limit));
+
   return (
     <div
       className="admin-table-card"
@@ -32,7 +49,73 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
         boxSizing: "border-box",
       }}
     >
-      <h2>Xác nhận đơn hàng</h2>
+      <div
+        className="admin-filter-row"
+        style={{
+          display: "flex",
+          gap: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+          marginBottom: 16,
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Tìm mã hoặc tên khách"
+          value={filters.search}
+          onChange={(e) =>
+            onBookingFilterChange({ search: e.target.value, page: 1 })
+          }
+        />
+
+        <select
+          value={filters.status}
+          onChange={(e) =>
+            onBookingFilterChange({ status: e.target.value as any, page: 1 })
+          }
+        >
+          <option value="ALL">Tất cả trạng thái</option>
+          <option value="PENDING">PENDING</option>
+          <option value="CONFIRMED">CONFIRMED</option>
+          <option value="CANCELLED">CANCELLED</option>
+        </select>
+
+        <label style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          Từ
+          <input
+            type="date"
+            value={filters.date_from}
+            onChange={(e) =>
+              onBookingFilterChange({ date_from: e.target.value, page: 1 })
+            }
+          />
+        </label>
+
+        <label style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          Đến
+          <input
+            type="date"
+            value={filters.date_to}
+            onChange={(e) =>
+              onBookingFilterChange({ date_to: e.target.value, page: 1 })
+            }
+          />
+        </label>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: 16,
+          flexWrap: "wrap",
+          gap: 12,
+        }}
+      >
+        <h2>Xác nhận đơn hàng</h2>
+        <span>Tổng đơn: {total}</span>
+      </div>
 
       <div
         className="admin-table"
@@ -43,7 +126,7 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
           boxSizing: "border-box",
         }}
       >
-        {bookings.map((booking) => (
+        {(bookings ?? []).map((booking) => (
           <div
             className="admin-table-row booking-admin-row"
             key={booking.id}
@@ -112,6 +195,45 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
             </button>
           </div>
         ))}
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginTop: 16,
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <span>
+          Trang {filters.page} / {totalPages}
+        </span>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="secondary-btn compact"
+            type="button"
+            disabled={filters.page <= 1}
+            onClick={() =>
+              onBookingFilterChange({ page: Math.max(1, filters.page - 1) })
+            }
+          >
+            Prev
+          </button>
+          <button
+            className="secondary-btn compact"
+            type="button"
+            disabled={filters.page >= totalPages}
+            onClick={() =>
+              onBookingFilterChange({
+                page: Math.min(totalPages, filters.page + 1),
+              })
+            }
+          >
+            Next
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -33,10 +33,10 @@ const getMembership = async (userId) => {
     `
     SELECT id, name, tier_level, min_spend, discount_percent, point_multiplier, color_hex
     FROM membership_tiers
-    WHERE tier_level = ? + 1
+    WHERE tier_level = ?
     LIMIT 1
     `,
-    [membership.tier_level]
+    [membership.tier_level + 1]
   );
 
   // Lấy benefits của tier hiện tại

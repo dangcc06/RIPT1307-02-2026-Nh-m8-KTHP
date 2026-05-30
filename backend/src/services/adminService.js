@@ -143,9 +143,59 @@ const getDashboardStatistics = async () => {
   };
 };
 
-const getAdminBookings = async () => {
-  const [rows] = await pool.execute(
-    `
+const getAdminBookings = async (filters = {}) => {
+  const {
+    search,
+    status,
+    date_from,
+    date_to,
+    page = 1,
+    limit = 20,
+  } = filters;
+
+  const parsedPage = Number(page) > 0 ? Number(page) : 1;
+  const parsedLimit = Number(limit) > 0 ? Number(limit) : 20;
+  const offset = (parsedPage - 1) * parsedLimit;
+
+  const safeOffset = Math.max(0, Number.parseInt(offset, 10) || 0);
+  const safeLimit = Math.max(1, Number.parseInt(parsedLimit, 10) || 20);
+
+  let whereSql = "WHERE 1=1";
+  const params = [];
+
+  if (search) {
+    whereSql += " AND (b.booking_code LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)";
+    const searchTerm = `%${search}%`;
+    params.push(searchTerm, searchTerm, searchTerm);
+  }
+
+  if (status && status !== "ALL") {
+    whereSql += " AND b.booking_status = ?";
+    params.push(status);
+  }
+
+  if (date_from) {
+    whereSql += " AND DATE(s.start_time) >= ?";
+    params.push(date_from);
+  }
+
+  if (date_to) {
+    whereSql += " AND DATE(s.start_time) <= ?";
+    params.push(date_to);
+  }
+
+  // Count total bookings
+  const countSql = `
+    SELECT COUNT(DISTINCT b.id) as total
+    FROM bookings b
+    JOIN showtimes s ON s.id = b.showtime_id
+    JOIN movies m ON m.id = s.movie_id
+    LEFT JOIN users u ON u.id = b.user_id
+    ${whereSql}
+  `;
+
+  // Get paginated bookings with latest payment info
+  const dataSql = `
     SELECT
       b.id, b.booking_code, b.total_amount, b.booking_status,
       b.showtime_id, s.start_time, m.title AS movie_title,
@@ -156,13 +206,30 @@ const getAdminBookings = async () => {
     JOIN showtimes s ON s.id = b.showtime_id
     JOIN movies m ON m.id = s.movie_id
     LEFT JOIN users u ON u.id = b.user_id
-    LEFT JOIN payments p ON p.booking_id = b.id
+    LEFT JOIN payments p ON p.id = (
+      SELECT id FROM payments WHERE booking_id = b.id ORDER BY id DESC LIMIT 1
+    )
+    ${whereSql}
     ORDER BY b.id DESC
-    LIMIT 50
-    `
-  );
+    LIMIT ${safeOffset}, ${safeLimit}
+  `;
 
-  return rows;
+  try {
+    const [countResult] = await pool.execute(countSql, params);
+    const totalCount = countResult[0]?.total || 0;
+
+    const [rows] = await pool.execute(dataSql, params);
+
+    return {
+      items: rows || [],
+      total: totalCount,
+      page: parsedPage,
+      limit: parsedLimit,
+    };
+  } catch (error) {
+    const AppError = require("../utils/AppError");
+    throw new AppError(`Error fetching bookings: ${error.message}`, 500);
+  }
 };
 
 const updateBookingStatus = async (bookingId, status) => {

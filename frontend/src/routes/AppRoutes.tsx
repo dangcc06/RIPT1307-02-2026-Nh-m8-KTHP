@@ -10,7 +10,7 @@ import MoviesPage from "../pages/Movies/MoviesPage";
 import ProfilePage from "../pages/Profile/ProfilePage";
 import CinemaListPage from "../pages/Cinemas/CinemaListPage";
 import CinemaDetailPage from "../pages/Cinemas/CinemaDetailPage";
-import MembershipPage from "../pages/Membership/MembershipPage";
+import MembershipPage from "../pages/Bookings/Membership/MembershipPage";
 
 const AppRoutes = () => {
   return (
