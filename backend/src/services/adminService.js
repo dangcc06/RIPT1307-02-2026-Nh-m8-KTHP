@@ -563,15 +563,14 @@ const exportRevenue = async (year) => {
   const sql = `
     SELECT 
       DATE_FORMAT(s.start_time, '%m') AS month_num,
-      DATE_FORMAT(s.start_time, '%Y-%m') AS month,
       DATE_FORMAT(s.start_time, 'Tháng %m, %Y') AS month_display,
       COALESCE(SUM(p.amount), 0) AS revenue
     FROM payments p
     JOIN bookings b ON b.id = p.booking_id
     JOIN showtimes s ON s.id = b.showtime_id
     WHERE YEAR(s.start_time) = ? AND p.payment_status = 'SUCCESS'
-    GROUP BY DATE_FORMAT(s.start_time, '%Y-%m')
-    ORDER BY month ASC
+    GROUP BY DATE_FORMAT(s.start_time, '%Y-%m'), DATE_FORMAT(s.start_time, '%m'), DATE_FORMAT(s.start_time, 'Tháng %m, %Y')
+    ORDER BY DATE_FORMAT(s.start_time, '%Y-%m') ASC
   `;
 
   try {

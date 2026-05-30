@@ -131,10 +131,14 @@ const exportBookings = asyncHandler(async (req, res) => {
 
 const exportRevenue = asyncHandler(async (req, res) => {
   const { year } = req.query;
-  const data = await adminService.exportRevenue(year || new Date().getFullYear());
+  const safeYear = year || new Date().getFullYear();
+  const data = await adminService.exportRevenue(safeYear);
 
   res.setHeader("Content-Type", "text/csv");
-  res.setHeader("Content-Disposition", `attachment; filename="revenue_${year || new Date().getFullYear()}.csv"`);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="revenue-report-${safeYear}.csv"`
+  );
   res.send(data);
 });
 
