@@ -25,6 +25,14 @@ const updateBookingStatus = asyncHandler(async (req, res) => {
   return successResponse(res, "Update booking status successfully", booking);
 });
 
+<<<<<<< HEAD
+=======
+const approvePendingBookings = asyncHandler(async (req, res) => {
+  const result = await adminService.approvePendingBookings(req.body || {});
+  return successResponse(res, "Approve pending bookings successfully", result);
+});
+
+>>>>>>> origin/TuanAnh
 const getUsers = asyncHandler(async (req, res) => {
   const { role, search } = req.query;
   const users = await adminService.getUsers({ role, search });
@@ -146,6 +154,10 @@ module.exports = {
   getDashboardStatistics,
   getAdminBookings,
   updateBookingStatus,
+<<<<<<< HEAD
+=======
+  approvePendingBookings,
+>>>>>>> origin/TuanAnh
   getUsers,
   updateUserRole,
   updateUserStatus,

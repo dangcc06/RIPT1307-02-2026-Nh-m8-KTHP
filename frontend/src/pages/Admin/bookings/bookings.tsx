@@ -2,9 +2,13 @@ import React from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { notification } from "antd";
 import type { AdminBooking } from "../../../services/adminService";
+<<<<<<< HEAD
 import { exportAdminBookings } from "../../../services/adminService";
 import { formatCurrency, formatDateTime } from "../../../utils/format";
 import { downloadBlob } from "../../../utils/downloadBlob";
+=======
+import { formatCurrency, formatDateTime } from "../../../utils/format";
+>>>>>>> origin/TuanAnh
 
 type BookingFilters = {
   search: string;
@@ -24,6 +28,10 @@ type BookingsSectionProps = {
     bookingId: number,
     status: AdminBooking["booking_status"]
   ) => Promise<void> | void;
+<<<<<<< HEAD
+=======
+  handleApproveAllBookings: () => Promise<void> | void;
+>>>>>>> origin/TuanAnh
 };
 
 const cellStyle: React.CSSProperties = {
@@ -39,8 +47,17 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
   filters,
   onBookingFilterChange,
   handleBookingStatus,
+<<<<<<< HEAD
 }) => {
   const totalPages = Math.max(1, Math.ceil(total / filters.limit));
+=======
+  handleApproveAllBookings,
+}) => {
+  const totalPages = Math.max(1, Math.ceil(total / filters.limit));
+  const pendingCount = bookings.filter((booking) => booking.booking_status === "PENDING").length;
+  const canApproveAll =
+    filters.status === "ALL" || filters.status === "PENDING" || pendingCount > 0;
+>>>>>>> origin/TuanAnh
 
   return (
     <div
@@ -124,6 +141,7 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
         <button
           type="button"
           className="secondary-btn compact"
+<<<<<<< HEAD
           onClick={async () => {
             try {
               const blob = await exportAdminBookings({
@@ -141,11 +159,25 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
               notification.error({
                 message: "Lỗi xuất CSV đơn hàng",
                 description: error.response?.data?.message || "Không thể xuất file CSV.",
+=======
+          disabled={!canApproveAll}
+          onClick={async () => {
+            try {
+              await handleApproveAllBookings();
+            } catch (error: any) {
+              notification.error({
+                message: "Lỗi duyệt tất cả",
+                description: error.response?.data?.message || "Không thể duyệt tất cả đơn hàng.",
+>>>>>>> origin/TuanAnh
               });
             }
           }}
         >
+<<<<<<< HEAD
           Xuất CSV
+=======
+          Duyệt tất cả
+>>>>>>> origin/TuanAnh
         </button>
       </div>
 
@@ -200,7 +232,11 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
 
             <button
               title="Xác nhận đơn"
+<<<<<<< HEAD
               disabled={booking.booking_status === "CONFIRMED"}
+=======
+              disabled={booking.booking_status !== "PENDING"}
+>>>>>>> origin/TuanAnh
               onClick={() => handleBookingStatus(booking.id, "CONFIRMED")}
               style={{
                 width: "36px",
@@ -214,7 +250,11 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
 
             <button
               title="Hủy đơn"
+<<<<<<< HEAD
               disabled={booking.booking_status === "CANCELLED"}
+=======
+              disabled={booking.booking_status !== "PENDING"}
+>>>>>>> origin/TuanAnh
               onClick={() => handleBookingStatus(booking.id, "CANCELLED")}
               style={{
                 width: "36px",
@@ -271,4 +311,8 @@ const BookingsSection: React.FC<BookingsSectionProps> = ({
   );
 };
 
+<<<<<<< HEAD
 export default BookingsSection;
+=======
+export default BookingsSection;
+>>>>>>> origin/TuanAnh

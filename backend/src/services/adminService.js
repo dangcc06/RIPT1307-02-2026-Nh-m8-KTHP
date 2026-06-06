@@ -1,6 +1,63 @@
 const pool = require("../configs/db");
+const membershipService = require("./membershipService");
+
+const autoCancelExpiredPendingBookings = async () => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [expiredBookings] = await connection.execute(
+      `
+      SELECT b.id
+      FROM bookings b
+      JOIN showtimes s ON s.id = b.showtime_id
+      WHERE b.booking_status = 'PENDING'
+        AND s.start_time < NOW()
+      FOR UPDATE
+      `
+    );
+
+    for (const booking of expiredBookings) {
+      await connection.execute(
+        "UPDATE bookings SET booking_status = 'CANCELLED' WHERE id = ?",
+        [booking.id]
+      );
+
+      try {
+        await membershipService.awardCancellationRefundPoints(connection, booking.id);
+      } catch (error) {
+        if (error.statusCode !== 404 && error.message !== "Booking not found") {
+          throw error;
+        }
+
+        await connection.execute(
+          `
+          UPDATE payments
+          SET payment_status = 'FAILED'
+          WHERE booking_id = ?
+            AND payment_status IN ('PENDING', 'SUCCESS')
+          `,
+          [booking.id]
+        );
+        await membershipService.restoreBookingVouchers(connection, booking.id);
+        await membershipService.restoreBookingBenefits(connection, booking.id);
+      }
+    }
+
+    await connection.commit();
+    return expiredBookings.length;
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
 
 const getDashboardStatistics = async () => {
+  await autoCancelExpiredPendingBookings();
+
   const [[movieStats]] = await pool.execute("SELECT COUNT(*) AS total_movies FROM movies");
   const [[bookingStats]] = await pool.execute("SELECT COUNT(*) AS total_bookings FROM bookings");
   const [[userStats]] = await pool.execute("SELECT COUNT(*) AS total_users FROM users");
@@ -144,6 +201,11 @@ const getDashboardStatistics = async () => {
 };
 
 const getAdminBookings = async (filters = {}) => {
+<<<<<<< HEAD
+=======
+  await autoCancelExpiredPendingBookings();
+
+>>>>>>> origin/TuanAnh
   const {
     search,
     status,
@@ -233,15 +295,147 @@ const getAdminBookings = async (filters = {}) => {
 };
 
 const updateBookingStatus = async (bookingId, status) => {
+  await autoCancelExpiredPendingBookings();
+
   const allowedStatuses = ["PENDING", "CONFIRMED", "CANCELLED"];
   if (!allowedStatuses.includes(status)) {
     const AppError = require("../utils/AppError");
     throw new AppError("Invalid booking status", 400);
   }
 
-  await pool.execute("UPDATE bookings SET booking_status = ? WHERE id = ?", [status, bookingId]);
-  const [rows] = await pool.execute("SELECT * FROM bookings WHERE id = ? LIMIT 1", [bookingId]);
-  return rows[0];
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [bookingRows] = await connection.execute(
+      `
+      SELECT b.*, s.start_time
+      FROM bookings b
+      JOIN showtimes s ON s.id = b.showtime_id
+      WHERE b.id = ?
+      LIMIT 1
+      FOR UPDATE
+      `,
+      [bookingId]
+    );
+
+    if (!bookingRows[0]) {
+      const AppError = require("../utils/AppError");
+      throw new AppError("Booking not found", 404);
+    }
+
+    const previousStatus = bookingRows[0].booking_status;
+
+    if (previousStatus !== "PENDING" && status !== previousStatus) {
+      const AppError = require("../utils/AppError");
+      throw new AppError("Chỉ đơn PENDING mới có thể cập nhật trạng thái.", 400);
+    }
+
+    if (status === "CONFIRMED" && new Date(bookingRows[0].start_time).getTime() < Date.now()) {
+      const AppError = require("../utils/AppError");
+      throw new AppError("Booking đã quá giờ chiếu nên không thể duyệt.", 400);
+    }
+
+    await connection.execute("UPDATE bookings SET booking_status = ? WHERE id = ?", [
+      status,
+      bookingId,
+    ]);
+
+    if (status === "CONFIRMED") {
+      await connection.execute(
+        "UPDATE payments SET payment_status = 'SUCCESS' WHERE booking_id = ? AND payment_status = 'PENDING'",
+        [bookingId]
+      );
+      await membershipService.awardBookingRewards(connection, bookingId);
+    }
+
+    if (previousStatus !== "CANCELLED" && status === "CANCELLED") {
+      await membershipService.awardCancellationRefundPoints(connection, bookingId);
+    }
+
+    const [rows] = await connection.execute("SELECT * FROM bookings WHERE id = ? LIMIT 1", [
+      bookingId,
+    ]);
+
+    await connection.commit();
+    return rows[0];
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+};
+
+const approvePendingBookings = async (filters = {}) => {
+  await autoCancelExpiredPendingBookings();
+
+  const { search, status, date_from, date_to } = filters;
+
+  if (status && !["ALL", "PENDING"].includes(status)) {
+    return { approved: 0 };
+  }
+
+  let whereSql = `
+    WHERE b.booking_status = 'PENDING'
+      AND s.start_time >= NOW()
+  `;
+  const params = [];
+
+  if (search) {
+    whereSql += " AND (b.booking_code LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)";
+    const searchTerm = `%${search}%`;
+    params.push(searchTerm, searchTerm, searchTerm);
+  }
+
+  if (date_from) {
+    whereSql += " AND DATE(s.start_time) >= ?";
+    params.push(date_from);
+  }
+
+  if (date_to) {
+    whereSql += " AND DATE(s.start_time) <= ?";
+    params.push(date_to);
+  }
+
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const [rows] = await connection.execute(
+      `
+      SELECT b.id
+      FROM bookings b
+      JOIN showtimes s ON s.id = b.showtime_id
+      LEFT JOIN users u ON u.id = b.user_id
+      ${whereSql}
+      ORDER BY b.id ASC
+      FOR UPDATE
+      `,
+      params
+    );
+
+    for (const booking of rows) {
+      await connection.execute("UPDATE bookings SET booking_status = 'CONFIRMED' WHERE id = ?", [
+        booking.id,
+      ]);
+      await connection.execute(
+        "UPDATE payments SET payment_status = 'SUCCESS' WHERE booking_id = ? AND payment_status = 'PENDING'",
+        [booking.id]
+      );
+      await membershipService.awardBookingRewards(connection, booking.id);
+    }
+
+    await connection.commit();
+    return { approved: rows.length };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
 const getUsers = async (filters = {}) => {
@@ -314,6 +508,79 @@ const updateUserStatus = async (userId, status) => {
   return rows[0];
 };
 
+<<<<<<< HEAD
+const getUsers = async (filters = {}) => {
+  const { role, search } = filters;
+  let query = `
+    SELECT u.id, u.full_name, u.email, u.phone, u.status as is_active, 
+           GROUP_CONCAT(r.name) as roles
+    FROM users u
+    JOIN user_roles ur ON u.id = ur.user_id
+    JOIN roles r ON ur.role_id = r.id
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (role) {
+    query += " AND r.name = ?";
+    params.push(role);
+  }
+
+  if (search) {
+    query += " AND (u.full_name LIKE ? OR u.email LIKE ?)";
+    params.push(`%${search}%`, `%${search}%`);
+  }
+
+  query += " GROUP BY u.id ORDER BY u.id DESC";
+
+  const [rows] = await pool.execute(query, params);
+  return rows;
+};
+
+const updateUserRole = async (userId, newRole) => {
+  const allowedRoles = ["CUSTOMER", "EMPLOYEE"];
+  if (!allowedRoles.includes(newRole)) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Cannot assign ADMIN role via this API", 400);
+  }
+
+  // Check if user is already ADMIN to prevent any change to the admin account
+  const [[userRole]] = await pool.execute(
+    `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`, 
+    [userId]
+  );
+
+  if (userRole && userRole.name === "ADMIN") {
+    const AppError = require("../utils/AppError");
+    throw new AppError("System Administrator account cannot be changed", 403);
+  }
+
+  await pool.execute("DELETE FROM user_roles WHERE user_id = ?", [userId]);
+  const [[roleRow]] = await pool.execute("SELECT id FROM roles WHERE name = ?", [newRole]);
+  
+  if (!roleRow) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Role not found", 404);
+  }
+
+  await pool.execute("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", [userId, roleRow.id]);
+  return { userId, newRole };
+};
+
+const updateUserStatus = async (userId, status) => {
+  const allowedStatuses = ["ACTIVE", "BLOCKED"];
+  if (!allowedStatuses.includes(status)) {
+    const AppError = require("../utils/AppError");
+    throw new AppError("Invalid status", 400);
+  }
+
+  await pool.execute("UPDATE users SET status = ? WHERE id = ?", [status, userId]);
+  const [rows] = await pool.execute("SELECT id, status FROM users WHERE id = ? LIMIT 1", [userId]);
+  return rows[0];
+};
+
+=======
+>>>>>>> origin/TuanAnh
 const deleteUser = async (userId) => {
   // Check if user is BLOCKED before deleting
   const [[user]] = await pool.execute("SELECT status FROM users WHERE id = ?", [userId]);
@@ -474,6 +741,11 @@ const deleteAdminFoodSize = async (sizeId) => {
 };
 
 const exportBookings = async (filters = {}) => {
+<<<<<<< HEAD
+=======
+  await autoCancelExpiredPendingBookings();
+
+>>>>>>> origin/TuanAnh
   const { status, date_from, date_to } = filters;
 
   let whereSql = "WHERE 1=1";
@@ -610,6 +882,10 @@ module.exports = {
   getDashboardStatistics,
   getAdminBookings,
   updateBookingStatus,
+<<<<<<< HEAD
+=======
+  approvePendingBookings,
+>>>>>>> origin/TuanAnh
   getUsers,
   updateUserRole,
   updateUserStatus,

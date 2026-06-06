@@ -49,6 +49,10 @@ const AdminMovies: React.FC<AdminMoviesProps> = ({
       filteredMovies.slice((currentPage - 1) * pageSize, currentPage * pageSize),
     [filteredMovies, currentPage]
   );
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/TuanAnh
   return (
     <div className="admin-workspace">
       <form className="form-panel admin-form" onSubmit={handleSubmitMovie}>
@@ -61,13 +65,26 @@ const AdminMovies: React.FC<AdminMoviesProps> = ({
           onChange={(e) => setMovieForm({ ...movieForm, title: e.target.value })}
         />
 
+<<<<<<< HEAD
         <input
+=======
+        <textarea
+>>>>>>> origin/TuanAnh
           placeholder="Mô tả"
           value={movieForm.description}
           onChange={(e) => setMovieForm({ ...movieForm, description: e.target.value })}
         />
 
         <input
+<<<<<<< HEAD
+=======
+          placeholder="Đạo diễn"
+          value={movieForm.director}
+          onChange={(e) => setMovieForm({ ...movieForm, director: e.target.value })}
+        />
+
+        <input
+>>>>>>> origin/TuanAnh
           required
           type="number"
           min="1"
@@ -100,6 +117,20 @@ const AdminMovies: React.FC<AdminMoviesProps> = ({
           onChange={(e) => setMovieForm({ ...movieForm, language: e.target.value })}
         />
 
+<<<<<<< HEAD
+=======
+        <select
+          value={movieForm.age_rating}
+          onChange={(e) => setMovieForm({ ...movieForm, age_rating: e.target.value })}
+        >
+          <option value="P">P - Mọi độ tuổi</option>
+          <option value="K">K - Trẻ em cần người lớn</option>
+          <option value="T13">T13 - Từ 13 tuổi</option>
+          <option value="T16">T16 - Từ 16 tuổi</option>
+          <option value="T18">T18 - Từ 18 tuổi</option>
+        </select>
+
+>>>>>>> origin/TuanAnh
         <input
           type="number"
           min="0"
@@ -116,7 +147,11 @@ const AdminMovies: React.FC<AdminMoviesProps> = ({
         >
           <option value="NOW_SHOWING">Đang chiếu</option>
           <option value="COMING_SOON">Sắp chiếu</option>
+<<<<<<< HEAD
           <option value="ENDED">Ngừng chiếu</option>
+=======
+          {movieForm.id && <option value="ENDED">Ngừng chiếu</option>}
+>>>>>>> origin/TuanAnh
         </select>
 
         <button className="primary-btn form-submit" type="submit">
@@ -161,7 +196,14 @@ const AdminMovies: React.FC<AdminMoviesProps> = ({
               <div className="admin-table-row movie-admin-row" key={movie.id}>
                 <strong>{movie.title}</strong>
                 <span>{movie.status}</span>
+<<<<<<< HEAD
                 <span>{movie.duration || 0} phút</span>
+=======
+                <span>{movie.age_rating || "T13"}</span>
+                <span>{movie.director || "Chưa có đạo diễn"}</span>
+                <span>{movie.duration || 0} phút</span>
+                <span>{movie.rating || "N/A"}</span>
+>>>>>>> origin/TuanAnh
 
                 <button title="Sửa phim" onClick={() => editMovie(movie)}>
                   <Edit3 size={16} />

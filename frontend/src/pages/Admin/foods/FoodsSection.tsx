@@ -17,6 +17,16 @@ type SizeForm = {
   price: string;
 };
 
+<<<<<<< HEAD
+=======
+const foodCategoryOptions = [
+  { id: 1, name: "Popcorn" },
+  { id: 2, name: "Drink" },
+  { id: 3, name: "Snack" },
+  { id: 4, name: "Combo" },
+];
+
+>>>>>>> origin/TuanAnh
 type FoodsSectionProps = {
   foods: ApiFood[];
   foodForm: FoodForm;
@@ -59,11 +69,14 @@ const FoodsSection: React.FC<FoodsSectionProps> = ({
     return acc;
   }, {});
 
+<<<<<<< HEAD
   const categories = Object.keys(foodsByCategory).map((name) => ({
     id: name,
     name,
   }));
 
+=======
+>>>>>>> origin/TuanAnh
   const selectedFoodSizes = selectedFood
     ? foodSizes.filter((size) => size.food_id === selectedFood.id)
     : [];
@@ -79,7 +92,11 @@ const FoodsSection: React.FC<FoodsSectionProps> = ({
           onChange={(e) => setFoodForm({ ...foodForm, category_id: e.target.value })}
         >
           <option value="">Chọn danh mục</option>
+<<<<<<< HEAD
           {categories.map((category) => (
+=======
+          {foodCategoryOptions.map((category) => (
+>>>>>>> origin/TuanAnh
             <option value={category.id} key={category.id}>
               {category.name}
             </option>

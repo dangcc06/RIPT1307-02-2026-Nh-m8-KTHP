@@ -16,8 +16,31 @@ export type ApiMovie = {
   language: string | null;
   age_rating: string | null;
   rating: string | number | null;
+  total_ratings?: number | string | null;
   status: "COMING_SOON" | "NOW_SHOWING" | "ENDED";
+  booking_count?: number | string;
   genres: string[];
+};
+
+export type ApiMovieRating = {
+  id: number;
+  user_id: number;
+  full_name: string;
+  rating: string | number;
+  comment: string | null;
+  created_at: string;
+};
+
+export type ApiMovieRatings = {
+  reviews: ApiMovieRating[];
+  average_rating: string | number;
+  total_ratings: number | string;
+};
+
+export type ApiCanRateMovie = {
+  canRate: boolean;
+  reason: string;
+  bookingId?: number;
 };
 
 export type PaginatedMovies<T> = {
@@ -37,6 +60,7 @@ export type ApiShowtime = {
   room_id: number;
   room_name: string;
   room_type: string;
+  room_total_seats?: number | string;
   cinema_id?: number;
   cinema_name: string;
   start_time: string;
@@ -78,7 +102,9 @@ export type ApiBookingSummary = {
   total_amount: string | number;
   booking_status: "PENDING" | "CONFIRMED" | "CANCELLED";
   showtime_id: number;
+  movie_id?: number;
   start_time: string;
+  end_time?: string;
   movie_title: string;
   poster_url: string | null;
 };
@@ -101,7 +127,11 @@ export type ApiCinema = {
   address: string;
   phone: string;
   logo_url: string | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
   status: string;
+  today_showtime_count?: number | string;
+  showing_movie_count?: number | string;
   rooms?: ApiRoom[];
 };
 
@@ -192,4 +222,13 @@ export type ApiBenefitUsage = {
   benefit_key: string;
   used_at: string;
   booking_code: string | null;
+};
+
+export type ApiUserVoucher = {
+  id: number;
+  code: string;
+  discount_amount: number;
+  points_cost: number;
+  status: "AVAILABLE" | "RESERVED" | "USED";
+  created_at?: string;
 };

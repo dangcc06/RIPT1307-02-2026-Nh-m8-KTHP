@@ -1,4 +1,5 @@
 import type { ApiMovie, ApiResponse } from "../types/api";
+import type { ApiFood, ApiFoodSize } from "../types/api";
 import apiClient from "./apiClient";
 
 export type AdminBooking = {
@@ -48,6 +49,19 @@ export const updateAdminBookingStatus = async (
   const response = await apiClient.patch<ApiResponse<AdminBooking>>(`/admin/bookings/${id}/status`, {
     status,
   });
+  return response.data.data;
+};
+
+export const approveAllPendingBookings = async (payload?: {
+  search?: string;
+  status?: string;
+  date_from?: string;
+  date_to?: string;
+}) => {
+  const response = await apiClient.post<ApiResponse<{ approved: number }>>(
+    "/admin/bookings/approve-all",
+    payload || {}
+  );
   return response.data.data;
 };
 

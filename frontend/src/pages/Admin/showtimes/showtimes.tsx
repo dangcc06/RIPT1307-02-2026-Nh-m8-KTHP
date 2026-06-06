@@ -12,6 +12,7 @@ type ShowtimeForm = {
   status: ApiShowtime["status"] | string;
 };
 
+<<<<<<< HEAD
 // Constants for validation
 const MIN_HOURS_BEFORE_SHOWTIME = 3;
 
@@ -37,6 +38,8 @@ const getShowtimeValidationError = (startTime: string): string => {
   return "";
 };
 
+=======
+>>>>>>> origin/TuanAnh
 type ShowtimesSectionProps = {
   showtimes: ApiShowtime[];
   movies: ApiMovie[];
@@ -86,7 +89,10 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
   const [statusFilter, setStatusFilter] = useState<"ALL" | ApiShowtime["status"]>("ALL");
   const [sortOrder, setSortOrder] = useState<"NEWEST" | "OLDEST">("NEWEST");
   const [currentPage, setCurrentPage] = useState(1);
+<<<<<<< HEAD
   const [validationError, setValidationError] = useState("");
+=======
+>>>>>>> origin/TuanAnh
   const pageSize = 10;
   const selectedMovie = useMemo(
     () => movies.find((movie) => String(movie.id) === showtimeForm.movie_id) || null,
@@ -150,6 +156,7 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
     [filteredShowtimes, currentPage]
   );
 
+<<<<<<< HEAD
   const handleShowtimeSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     
@@ -175,6 +182,8 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
     )}:${pad(minTime.getMinutes())}`;
   }, []);
 
+=======
+>>>>>>> origin/TuanAnh
   return (
     <div
       className="admin-workspace"
@@ -185,7 +194,11 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
         boxSizing: "border-box",
       }}
     >
+<<<<<<< HEAD
       <form className="form-panel admin-form" onSubmit={handleShowtimeSubmit}>
+=======
+      <form className="form-panel admin-form" onSubmit={handleSubmitShowtime}>
+>>>>>>> origin/TuanAnh
         <h2>{showtimeForm.id ? "Sửa suất chiếu" : "Thêm suất chiếu"}</h2>
 
         <label className="form-field-label">Phim</label>
@@ -248,7 +261,11 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
         <input
           required
           type="datetime-local"
+<<<<<<< HEAD
           min={!showtimeForm.id ? minShowtimeDateTime : undefined}
+=======
+          min={selectedMovie?.release_date ? `${selectedMovie.release_date.slice(0, 10)}T00:00` : undefined}
+>>>>>>> origin/TuanAnh
           value={showtimeForm.start_time}
           onChange={(e) => {
             const startTime = e.target.value;
@@ -259,6 +276,7 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
               );
             }
             setShowtimeForm({ ...showtimeForm, start_time: startTime, end_time: endTime });
+<<<<<<< HEAD
             // Clear validation error when user changes the time
             if (validationError) setValidationError("");
           }}
@@ -268,6 +286,10 @@ const ShowtimesSection: React.FC<ShowtimesSectionProps> = ({
             {validationError}
           </p>
         )}
+=======
+          }}
+        />
+>>>>>>> origin/TuanAnh
 
         <label className="form-field-label">Kết thúc</label>
         <input
